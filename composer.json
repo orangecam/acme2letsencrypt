@@ -1,0 +1,19 @@
+{
+	"name": "orangecam/acme2letsencrypt",
+	"version": "1.0.0",
+	"description": "A PHP client for acme protocal (version 2) implementation, used to get letsencrypt's ssl certificates.",
+	"type": "library",
+	"autoload": {
+		"psr-4": {
+			"orangecam\\acme2letsencrypt\\": "src/"
+		}
+	},
+	"minimum-stability": "stable",
+	"require": {
+		"php": ">=8.1",
+		"ext-curl": "*",
+		"ext-json": "*",
+		"ext-openssl": "*",
+		"guzzlehttp/guzzle": "^7.9"
+	}
+}
