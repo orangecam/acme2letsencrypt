@@ -10,6 +10,8 @@
 
 namespace orangecam\acme2letsencrypt\helpers;
 
+use GuzzleHttp\Client as GuzzleHttpClient;
+
 /**
  * Class CommonHelper
  * @package orangecam\acme2letsencrypt\helpers
@@ -21,7 +23,7 @@ class CommonHelper
 	 * @param string $string
 	 * @return mixed
 	 */
-	public function base64UrlSafeEncode($string)
+	public static function base64UrlSafeEncode($string)
 	{
 		return str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($string));
 	}
@@ -31,7 +33,7 @@ class CommonHelper
 	 * @param string $header
 	 * @return bool|string
 	 */
-	public function getNonceFromResponseHeader($header)
+	public static function getNonceFromResponseHeader($header)
 	{
 		return $this->getFieldFromHeader('Replay-Nonce', $header);
 	}
@@ -41,7 +43,7 @@ class CommonHelper
 	 * @param string $header
 	 * @return bool|string
 	 */
-	public function getLocationFieldFromHeader($header)
+	public static function getLocationFieldFromHeader($header)
 	{
 		return $this->getFieldFromHeader('Location', $header);
 	}
@@ -52,12 +54,13 @@ class CommonHelper
 	 * @param string $header
 	 * @return bool|string
 	 */
-	public function getFieldFromHeader($field, $header)
+	public static function getFieldFromHeader($field, $header)
 	{
+		//Check it
 		if(!preg_match("/{$field}:\s*(\S+)/i", $header, $matches)){
 			return FALSE;
 		}
-
+		//Return
 		return trim($matches[1]);
 	}
 
@@ -68,21 +71,27 @@ class CommonHelper
 	 * @param string $fileContent
 	 * @return bool
 	 */
-	public function checkHttpChallenge($domain, $fileName, $fileContent)
+	public static function checkHttpChallenge($domain, $fileName, $fileContent)
 	{
+		//Setup the URL for use in the function
 		$url = "http://{$domain}/.well-known/acme-challenge/{$fileName}";
-
-		try {
-			list(, , $body) = RequestHelper::get($url);
+		//Setup the GuzzleHttpClient
+		$client = new GuzzleHttpClient();
+		//Send the HEAD request and get the response
+		$response = $client->request('GET', $url);
+		//If acme2 endpoint is not responding, then throw an error
+		if($response instanceof \GuzzleHttp\Psr7\Response && $response->getStatusCode() != 200) {
+			//Throw the Exception error
+			throw new \Exception("Get url failed, the file is not reachable at: {$url}");
 		}
-		catch(\Exception $e) {
-			return FALSE;
-		}
-
-		if($body == $fileContent) {
+		//Get the body data from the GET request
+		$body_data = $response->getBody()->__toString();
+		//Check the body data against what is expected
+		if($body_data == $fileContent) {
+			//Success
 			return TRUE;
 		}
-
+		//Failure
 		return FALSE;
 	}
 
@@ -92,19 +101,21 @@ class CommonHelper
 	 * @param string $dnsContent
 	 * @return bool
 	 */
-	public function checkDNSChallenge($domain, $dnsContent)
+	public static function checkDNSChallenge($domain, $dnsContent)
 	{
+		//Setup
 		$host = '_acme-challenge.'.str_replace('*.', '', $domain);
 		$recordList = @dns_get_record($host, DNS_TXT);
-
+		//Check DNS record exists and is valid
 		if(is_array($recordList)) {
 			foreach($recordList as $record) {
 				if($record['type'] == 'TXT' && $record['txt'] == $dnsContent) {
+					//Success
 					return TRUE;
 				}
 			}
 		}
-
+		//Failure
 		return FALSE;
 	}
 
@@ -113,7 +124,7 @@ class CommonHelper
 	 * @param array $domainList
 	 * @return mixed
 	 */
-	public function getCommonNameForCSR($domainList)
+	public static function getCommonNameForCSR($domainList)
 	{
 		$domainLevel = [];
 
@@ -135,14 +146,15 @@ class CommonHelper
 	 * @param string $csr
 	 * @return string
 	 */
-	public function getCSRWithoutComment($csr)
+	public static function getCSRWithoutComment($csr)
 	{
+		//Setup
 		$pattern = '/-----BEGIN\sCERTIFICATE\sREQUEST-----(.*)-----END\sCERTIFICATE\sREQUEST-----/is';
-
+		//Check it
 		if(preg_match($pattern, $csr, $matches)) {
 			return trim($matches[1]);
 		}
-
+		//return
 		return $csr;
 	}
 
@@ -151,14 +163,15 @@ class CommonHelper
 	 * @param string $certificate
 	 * @return string
 	 */
-	public function getCertificateWithoutComment($certificate)
+	public static function getCertificateWithoutComment($certificate)
 	{
+		//Setup
 		$pattern = '/-----BEGIN\sCERTIFICATE-----(.*)-----END\sCERTIFICATE-----/is';
-
+		//Check it
 		if(preg_match($pattern, $certificate, $matches)) {
 			return trim($matches[1]);
 		}
-
+		//return
 		return $certificate;
 	}
 
@@ -167,25 +180,24 @@ class CommonHelper
 	 * @param string $certificateFromServer
 	 * @return array|null
 	 */
-	public function extractCertificate($certificateFromServer)
+	public static function extractCertificate($certificateFromServer)
 	{
+		//Setup
 		$certificate = '';
 		$certificateFullChained = '';
 		$pattern = '/-----BEGIN\sCERTIFICATE-----(.*?)-----END\sCERTIFICATE-----/is';
-
+		//If valid and matches, then output the certificates
 		if(preg_match_all($pattern, $certificateFromServer, $matches)) {
 			$certificate = trim($matches[0][0]);
-
 			foreach($matches[0] as $match) {
 				$certificateFullChained .= trim($match)."\n";
 			}
-
 			return [
 				'certificate' => $certificate,
 				'certificateFullChained' => trim($certificateFullChained),
 			];
 		}
-
+		//Failure
 		return NULL;
 	}
 }

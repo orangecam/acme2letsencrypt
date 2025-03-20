@@ -21,12 +21,6 @@ use orangecam\acme2letsencrypt\helpers\OpenSSLHelper;
 class OrderService
 {
 	/**
-	 * Helper classes
-	 */
-	private $common;
-	private $openssl;
-
-	/**
 	 * Order status: pending, processing, valid, invalid
 	 * @var string
 	 */
@@ -144,6 +138,7 @@ class OrderService
 	 */
 	public function __construct(array $domainInfo, int $algorithm, bool $generateNewOder)
 	{
+		//Set the variables as they are passed in
 		$this->_algorithm = $algorithm;
 		$this->_generateNewOrder = boolval($generateNewOder);
 
@@ -224,8 +219,7 @@ class OrderService
 	{
 		$identifierList = [];
 
-		foreach($this->_domainList as $domain)
-		{
+		foreach($this->_domainList as $domain) {
 			$identifierList[] = [
 				'type' => 'dns',
 				'value' => $domain,
@@ -246,13 +240,11 @@ class OrderService
 
 		list($code, $header, $body) = RequestHelper::post(Client::$runtime->endpoint->newOrder, $jws);
 
-		if($code != 201)
-		{
+		if($code != 201) {
 			throw new \Exception('Create order failed, the domain list is: '.implode(', ', $this->_domainList).", the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
 		}
 
-		if(($orderUrl = CommonHelper::getLocationFieldFromHeader($header)) === FALSE)
-		{
+		if(($orderUrl = CommonHelper::getLocationFieldFromHeader($header)) === FALSE) {
 			throw new \Exception('Get order url failed during order creation, the domain list is: '.implode(', ', $this->_domainList));
 		}
 
@@ -273,8 +265,7 @@ class OrderService
 	 */
 	private function getOrder($getAuthorizationList = TRUE)
 	{
-		if(!is_file($this->_orderInfoPath))
-		{
+		if(!is_file($this->_orderInfoPath)) {
 			throw new \Exception("Get order info failed, the local order info file doesn't exist, the order info file path is: {$this->_orderInfoPath}");
 		}
 
@@ -282,15 +273,13 @@ class OrderService
 
 		list($code, $header, $body) = RequestHelper::get($orderUrl);
 
-		if($code != 200)
-		{
+		if($code != 200) {
 			throw new \Exception("Get order info failed, the order url is: {$orderUrl}, the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
 		}
 
 		$this->populate(array_merge($body, ['orderUrl' => $orderUrl]));
 
-		if($getAuthorizationList === TRUE)
-		{
+		if($getAuthorizationList === TRUE) {
 			$this->getAuthorizationList();
 		}
 
@@ -303,26 +292,22 @@ class OrderService
 	 */
 	public function getPendingChallengeList()
 	{
-		if($this->isAllAuthorizationValid() === TRUE)
-		{
+		if($this->isAllAuthorizationValid() === TRUE) {
 			return [];
 		}
 
 		$challengeList = [];
 		$thumbprint = OpenSSLHelper::generateThumbprint();
 
-		foreach($this->_authorizationList as $authorization)
-		{
-			if($authorization->status != 'pending')
-			{
+		foreach($this->_authorizationList as $authorization) {
+			if($authorization->status != 'pending') {
 				continue;
 			}
 
 			$challengeType = $this->_domainChallengeTypeMap[$authorization->domain];
 			$challenge = $authorization->getChallenge($challengeType);
 
-			if($challenge['status'] != 'pending')
-			{
+			if($challenge['status'] != 'pending') {
 				continue;
 			}
 
@@ -330,8 +315,7 @@ class OrderService
 			$challengeService = new ChallengeService($challengeType, $authorization);
 
 			/* Generate challenge info for http-01 */
-			if($challengeType == ConstantVariables::CHALLENGE_TYPE_HTTP)
-			{
+			if($challengeType == ConstantVariables::CHALLENGE_TYPE_HTTP) {
 				$challengeCredential = [
 					'identifier' => $authorization->identifier['value'],
 					'fileName' => $challenge['token'],
@@ -340,8 +324,7 @@ class OrderService
 			}
 
 			/* Generate challenge info for dns-01 */
-			else
-			{
+			else {
 				$challengeCredential = [
 					'identifier' => $authorization->identifier['value'],
 					'dnsContent' => CommonHelper::base64UrlSafeEncode(hash('sha256', $challengeContent, TRUE)),
@@ -364,8 +347,7 @@ class OrderService
 	 */
 	public function getCertificateFile($csr = NULL)
 	{
-		if($this->isAllAuthorizationValid() === FALSE)
-		{
+		if($this->isAllAuthorizationValid() === FALSE) {
 			throw new \Exception("There are still some authorizations that are not valid.");
 		}
 
@@ -375,8 +357,7 @@ class OrderService
 
 		list($code, $header, $body) = RequestHelper::get($this->certificate);
 
-		if($code != 200)
-		{
+		if($code != 200) {
 			throw new \Exception("Fetch certificate from letsencrypt failed, the url is: {$this->certificate}, the domain list is: ".implode(', ', $this->_domainList).", the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
 		}
 
@@ -412,13 +393,11 @@ class OrderService
 	 */
 	public function revokeCertificate($reason = 0)
 	{
-		if($this->status != 'valid')
-		{
+		if($this->status != 'valid') {
 			throw new \Exception("Revoke certificate failed because of invalid status({$this->status})");
 		}
 
-		if(!is_file($this->_certificatePath))
-		{
+		if(!is_file($this->_certificatePath)) {
 			throw new \Exception("Revoke certificate failed because of certicate file missing({$this->_certificatePath})");
 		}
 
@@ -436,8 +415,7 @@ class OrderService
 
 		list($code, $header, $body) = RequestHelper::post(Client::$runtime->endpoint->revokeCert, $jws);
 
-		if($code != 200)
-		{
+		if($code != 200) {
 			throw new \Exception("Revoke certificate failed, the domain list is: ".implode(', ', $this->_domainList).", the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
 		}
 

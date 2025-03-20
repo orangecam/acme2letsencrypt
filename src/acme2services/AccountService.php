@@ -20,12 +20,6 @@ use orangecam\acme2letsencrypt\helpers\OpenSSLHelper;
 class AccountService
 {
 	/**
-	 * Helper classes
-	 */
-	private $common;
-	private $openssl;
-
-	/**
 	 * Account id
 	 * @var string
 	 */
@@ -92,6 +86,7 @@ class AccountService
 	 */
 	public function __construct($accountStoragePath)
 	{
+		//Check if storage path is not there, then create it if possible
 		if(!is_dir($accountStoragePath) && mkdir($accountStoragePath, 0755, TRUE) === FALSE) {
 			throw new \Exception("create directory({$accountStoragePath}) failed, please check the permission.");
 		}
@@ -258,7 +253,7 @@ class AccountService
 	 */
 	public function updateAccountKey()
 	{
-		$keyPair = OpenSSLHelper::generateRSAKeyPair();
+		$keyPair = OpenSSLHelper::generateKeyPair(ConstantVariables::KEY_PAIR_TYPE_RSA);
 
 		$privateKey = openssl_pkey_get_private($keyPair['privateKey']);
 		$detail = openssl_pkey_get_details($privateKey);
@@ -339,7 +334,7 @@ class AccountService
 	 */
 	private function createKeyPairFile($keyPair = NULL)
 	{
-		$keyPair = $keyPair ?: OpenSSLHelper::generateRSAKeyPair();
+		$keyPair = $keyPair ?: OpenSSLHelper::generateKeyPair(ConstantVariables::KEY_PAIR_TYPE_RSA);
 
 		$result = file_put_contents($this->_privateKeyPath, $keyPair['privateKey']) && file_put_contents($this->_publicKeyPath, $keyPair['publicKey']);
 

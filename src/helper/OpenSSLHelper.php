@@ -19,32 +19,12 @@ use orangecam\acme2letsencrypt\constants\ConstantVariables;
 class OpenSSLHelper
 {
 	/**
-	 * Genarate rsa public/private key pair
-	 * @return array
-	 * @throws \Exception
-	 */
-	public function generateRSAKeyPair()
-	{
-		return $this->generateKeyPair(ConstantVariables::KEY_PAIR_TYPE_RSA);
-	}
-
-	/**
-	 * Genarate ec public/private key pair
-	 * @return array
-	 * @throws \Exception
-	 */
-	public function generateECKeyPair()
-	{
-		return $this->generateKeyPair(ConstantVariables::KEY_PAIR_TYPE_EC);
-	}
-
-	/**
 	 * Generate private/public key pair
 	 * @param $type
 	 * @return array
 	 * @throws \Exception
 	 */
-	public function generateKeyPair(int $type)
+	public static function generateKeyPair(int $type)
 	{
 		$configMap = [
 			ConstantVariables::KEY_PAIR_TYPE_RSA => [
@@ -92,7 +72,7 @@ class OpenSSLHelper
 	 * @param string $privateKey
 	 * @return mixed
 	 */
-	public function generateCSR($domainList, $dn, $privateKey)
+	public static function generateCSR($domainList, $dn, $privateKey)
 	{
 		$san = array_map(
 			function($domain) {
@@ -144,7 +124,7 @@ class OpenSSLHelper
 	 * @param string|null $privateKey
 	 * @return mixed
 	 */
-	public function generateThumbprint($privateKey = NULL)
+	public static function generateThumbprint($privateKey = NULL)
 	{
 		$privateKey = openssl_pkey_get_private($privateKey ?: Client::$runtime->account->getPrivateKey());
 		$detail = openssl_pkey_get_details($privateKey);
@@ -166,7 +146,7 @@ class OpenSSLHelper
 	 * @return string
 	 * @throws \Exception
 	 */
-	public function generateJWSOfJWK($url, $payload, $privateKey = NULL)
+	public static function generateJWSOfJWK($url, $payload, $privateKey = NULL)
 	{
 		$privateKey = openssl_pkey_get_private($privateKey ?: Client::$runtime->account->getPrivateKey());
 		$detail = openssl_pkey_get_details($privateKey);
@@ -203,7 +183,7 @@ class OpenSSLHelper
 	 * @return string
 	 * @throws \Exception
 	 */
-	public function generateJWSOfKid($url, $kid, $payload)
+	public static function generateJWSOfKid($url, $kid, $payload)
 	{
 		$privateKey = openssl_pkey_get_private(Client::$runtime->account->getPrivateKey());
 

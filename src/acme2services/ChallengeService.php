@@ -83,8 +83,7 @@ class ChallengeService
 	{
 		$orderService = Client::$runtime->order;
 
-		if ($orderService->isAllAuthorizationValid() === TRUE)
-		{
+		if($orderService->isAllAuthorizationValid() === TRUE) {
 			return TRUE;
 		}
 

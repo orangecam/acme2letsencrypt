@@ -90,9 +90,9 @@ class EndpointService
 			//Throw the Exception error
 			throw new Exception("The body from the get endpoint is not valid, the url is: {$acme2EndpointUrl}");
 		}
-		$data = json_decode($response->getBody()->__toString(), true);
+		$body_data = json_decode($response->getBody()->__toString(), true);
 		//Populate if property exists
-		foreach($data as $key => $value) {
+		foreach($body_data as $key => $value) {
 			//Check if the property_exists, then set the value
 			if(property_exists($this, $key)) {
 				//Set the value

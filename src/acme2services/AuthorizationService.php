@@ -21,12 +21,6 @@ use orangecam\acme2letsencrypt\helpers\OpenSSLHelper;
 class AuthorizationService
 {
 	/**
-	 * Helper classes
-	 */
-	private $common;
-	private $openssl;
-
-	/**
 	 * Domain info
 	 * @var array
 	 */
@@ -75,6 +69,7 @@ class AuthorizationService
 	 */
 	public function __construct($authorizationUrl)
 	{
+		//Set the variables as they are passed in
 		$this->authorizationUrl = $authorizationUrl;
 
 		$this->getAuthorization();
@@ -89,8 +84,7 @@ class AuthorizationService
 	{
 		list($code, $header , $body) = RequestHelper::get($this->authorizationUrl);
 
-		if ($code != 200)
-		{
+		if($code != 200) {
 			throw new \Exception("Get authorization info failed, the authorization url is: {$this->authorizationUrl}, the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
 		}
 
@@ -106,10 +100,8 @@ class AuthorizationService
 	 */
 	public function getChallenge($type)
 	{
-		foreach ($this->challenges as $challenge)
-		{
-			if ($challenge['type'] == $type)
-			{
+		foreach($this->challenges as $challenge) {
+			if($challenge['type'] == $type) {
 				return $challenge;
 			}
 		}
@@ -129,8 +121,7 @@ class AuthorizationService
 	{
 		$challenge = $this->getChallenge($type);
 
-		if ($this->status != 'pending' || $challenge['status'] != 'pending')
-		{
+		if($this->status != 'pending' || $challenge['status'] != 'pending') {
 			return TRUE;
 		}
 
@@ -146,8 +137,7 @@ class AuthorizationService
 
 		list($code, $header, $body) = RequestHelper::post($challenge['url'], $jwk);
 
-		if ($code != 200)
-		{
+		if($code != 200) {
 			throw new \Exception("Send Request to letsencrypt to verify authorization failed, the url is: {$challenge['url']}, the domain is: {$this->identifier['value']}, the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
 		}
 
@@ -167,29 +157,23 @@ class AuthorizationService
 	{
 		$verifyStartTime = time();
 
-		while (TRUE)
-		{
-			if ($verifyLocallyTimeout > 0 && (time() - $verifyStartTime) > $verifyLocallyTimeout)
-			{
+		while(TRUE) {
+			if($verifyLocallyTimeout > 0 && (time() - $verifyStartTime) > $verifyLocallyTimeout) {
 				throw new \Exception("Verify `{$this->domain}` via {$type} timeout, the timeout setting is: {$verifyLocallyTimeout} seconds");
 			}
 
 			$challenge = $this->getChallenge($type);
 			$domain = $this->identifier['value'];
 
-			if ($type == ConstantVariables::CHALLENGE_TYPE_HTTP)
-			{
-				if (CommonHelper::checkHttpChallenge($domain, $challenge['token'], $keyAuthorization) === TRUE)
-				{
+			if($type == ConstantVariables::CHALLENGE_TYPE_HTTP) {
+				if(CommonHelper::checkHttpChallenge($domain, $challenge['token'], $keyAuthorization) === TRUE) {
 					break;
 				}
 			}
-			else
-			{
+			else {
 				$dnsContent = CommonHelper::base64UrlSafeEncode(hash('sha256', $keyAuthorization, TRUE));
 
-				if (CommonHelper::checkDNSChallenge($domain, $dnsContent) === TRUE)
-				{
+				if(CommonHelper::checkDNSChallenge($domain, $dnsContent) === TRUE) {
 					break;
 				}
 			}
@@ -208,10 +192,8 @@ class AuthorizationService
 	{
 		$verifyStartTime = time();
 
-		while ($this->status == 'pending')
-		{
-			if ($verifyCATimeout > 0 && (time() - $verifyStartTime) > $verifyCATimeout)
-			{
+		while($this->status == 'pending') {
+			if($verifyCATimeout > 0 && (time() - $verifyStartTime) > $verifyCATimeout) {
 				throw new \Exception("Verify `{$this->domain}` via {$type} timeout, the timeout setting is: {$verifyCATimeout} seconds");
 			}
 
@@ -220,8 +202,7 @@ class AuthorizationService
 			$this->getAuthorization();
 		}
 
-		if ($this->status != 'valid')
-		{
+		if($this->status != 'valid') {
 			throw new \Exception("Verify {$this->domain} via {$type} failed, the authorization status becomes {$this->status}.");
 		}
 	}
@@ -240,7 +221,7 @@ class AuthorizationService
 				$this->{$key} = $value;
 			}
 		}
-
+		//Set the domain variable
 		$this->domain = ($this->wildcard ? '*.' : '').$this->identifier['value'];
 	}
 }
