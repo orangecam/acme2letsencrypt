@@ -51,10 +51,7 @@ class ClientRequest
 	 * @param string $algorithm
 	 * @param bool $generateNewOder
 	 * @return services\OrderService
-	 * @throws exceptions\AccountException
-	 * @throws exceptions\NonceException
-	 * @throws exceptions\OrderException
-	 * @throws exceptions\RequestException
+	 * @throws \Exception
 	 */
 	public function getOrder(array $domainInfo, string $algorithm, bool $generateNewOder = TRUE)
 	{

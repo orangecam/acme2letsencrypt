@@ -61,8 +61,7 @@ class EndpointService
 	/**
 	 * EndpointService constructor
 	 * @param bool $staging
-	 * @throws EndpointException
-	 * @throws \orangecam\acme2letsencrypt\exceptions\RequestException
+	 * @throws \Exception
 	 */
 	public function __construct(bool $staging)
 	{
@@ -71,8 +70,7 @@ class EndpointService
 
 	/**
 	 * Populate endpoint info
-	 * @throws EndpointException
-	 * @throws \orangecam\acme2letsencrypt\exceptions\RequestException
+	 * @throws \Exception
 	 */
 	private function populate(bool $staging)
 	{
@@ -84,16 +82,16 @@ class EndpointService
 		$response = $client->request('GET', $acme2EndpointUrl);
 		//If acme2 endpoint is not responding, then throw an error
 		if($response instanceof \GuzzleHttp\Psr7\Response && $response->getStatusCode() != 200) {
-			//Throw the EndpointException error
-			throw new EndpointException("Get endpoint info failed, the url is: {$acme2EndpointUrl}");
+			//Throw the Exception error
+			throw new Exception("Get endpoint info failed, the url is: {$acme2EndpointUrl}");
 		}
 		//Get the body
 		if(!empty(strpos($response->getHeaderLine('Content-Type'), 'application/json'))) {
-			//Throw the EndpointException error
-			throw new EndpointException("The body from the get endpoint is not valid, the url is: {$acme2EndpointUrl}");
+			//Throw the Exception error
+			throw new Exception("The body from the get endpoint is not valid, the url is: {$acme2EndpointUrl}");
 		}
 		$data = json_decode($response->getBody()->__toString(), true);
-		//Update the variable in the class
+		//Populate if property exists
 		foreach($data as $key => $value) {
 			//Check if the property_exists, then set the value
 			if(property_exists($this, $key)) {
