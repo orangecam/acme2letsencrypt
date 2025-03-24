@@ -8,17 +8,24 @@
  * @license https://opensource.org/licenses/mit-license.php MIT License
  */
 
-namespace orangecam\acme2letsencrypt\services;
+namespace orangecam\acme2letsencrypt\acme2services;
 
 use orangecam\acme2letsencrypt\helpers\CommonHelper;
 use orangecam\acme2letsencrypt\helpers\OpenSSLHelper;
+use orangecam\acme2letsencrypt\constants\ConstantVariables;
+use orangecam\acme2letsencrypt\ClientRequest;
 
 /**
  * Class AccountService
- * @package orangecam\acme2letsencrypt\services
+ * @package orangecam\acme2letsencrypt\acme2services
  */
 class AccountService
 {
+	/**
+	 * Hold RunRequest class instance
+	 */
+	private $runRequest;
+
 	/**
 	 * Account id
 	 * @var string
@@ -90,7 +97,7 @@ class AccountService
 		if(!is_dir($accountStoragePath) && mkdir($accountStoragePath, 0755, TRUE) === FALSE) {
 			throw new \Exception("create directory({$accountStoragePath}) failed, please check the permission.");
 		}
-
+		//Set the path for the private and public pem files for the account
 		$this->_privateKeyPath = $accountStoragePath.'/private.pem';
 		$this->_publicKeyPath = $accountStoragePath.'/public.pem';
 	}
@@ -101,15 +108,15 @@ class AccountService
 	 */
 	public function init()
 	{
+		//Check if the account keys exist, and if yes, then get the account
 		if(is_file($this->_publicKeyPath) && is_file($this->_privateKeyPath)) {
 			$this->getAccount();
-
 			return;
 		}
-
+		//Else, delete the files
 		@unlink($this->_privateKeyPath);
 		@unlink($this->_publicKeyPath);
-
+		//Attempt to create the account
 		$this->createAccount();
 	}
 
@@ -126,7 +133,7 @@ class AccountService
 			function($email) {
 				return "mailto:{$email}";
 			},
-			Client::$runtime->emailList
+			ClientRequest::$runRequest->emailList
 		);
 
 		$payload = [
@@ -135,11 +142,11 @@ class AccountService
 		];
 
 		$jws = OpenSSLHelper::generateJWSOfJWK(
-			Client::$runtime->endpoint->newAccount,
+			ClientRequest::$runRequest->endpoint->newAccount,
 			$payload
 		);
 
-		list($code, $header, $body) = RequestHelper::post(Client::$runtime->endpoint->newAccount, $jws);
+		list($code, $header, $body) = RequestHelper::post(ClientRequest::$runRequest->endpoint->newAccount, $jws);
 
 		if($code != 201) {
 			throw new \Exception("Create account failed, the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
@@ -194,11 +201,11 @@ class AccountService
 		}
 
 		$jws = OpenSSLHelper::generateJWSOfJWK(
-			Client::$runtime->endpoint->newAccount,
+			ClientRequest::$runRequest->endpoint->newAccount,
 			['onlyReturnExisting' => TRUE]
 		);
 
-		list($code, $header, $body) = RequestHelper::post(Client::$runtime->endpoint->newAccount, $jws);
+		list($code, $header, $body) = RequestHelper::post(ClientRequest::$runRequest->endpoint->newAccount, $jws);
 
 		if($code != 200) {
 			throw new \Exception("Get account url failed, the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
@@ -268,18 +275,18 @@ class AccountService
 		];
 
 		$outerPayload = OpenSSLHelper::generateJWSOfJWK(
-			Client::$runtime->endpoint->keyChange,
+			ClientRequest::$runRequest->endpoint->keyChange,
 			$innerPayload,
 			$keyPair['privateKey']
 		);
 
 		$jws = OpenSSLHelper::generateJWSOfKid(
-			Client::$runtime->endpoint->keyChange,
+			ClientRequest::$runRequest->endpoint->keyChange,
 			$this->getAccountUrl(),
 			$outerPayload
 		);
 
-		list($code, $header, $body) = RequestHelper::post(Client::$runtime->endpoint->keyChange, $jws);
+		list($code, $header, $body) = RequestHelper::post(ClientRequest::$runRequest->endpoint->keyChange, $jws);
 
 		if($code != 200) {
 			throw new \Exception("Update account key failed, the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));

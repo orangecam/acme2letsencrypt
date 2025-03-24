@@ -8,15 +8,16 @@
  * @license https://opensource.org/licenses/mit-license.php MIT License
  */
 
-namespace orangecam\acme2letsencrypt\services;
+namespace orangecam\acme2letsencrypt\acme2services;
 
 use orangecam\acme2letsencrypt\constants\ConstantVariables;
 use orangecam\acme2letsencrypt\helpers\CommonHelper;
 use orangecam\acme2letsencrypt\helpers\OpenSSLHelper;
+use orangecam\acme2letsencrypt\ClientRequest;
 
 /**
  * Class OrderService
- * @package orangecam\acme2letsencrypt\services
+ * @package orangecam\acme2letsencrypt\acme2services
  */
 class OrderService
 {
@@ -172,7 +173,7 @@ class OrderService
 		];
 
 		$algorithmName = $algorithmNameMap[$this->_algorithm];
-		$basePath = Client::$runtime->storagePath.DIRECTORY_SEPARATOR.$flag.DIRECTORY_SEPARATOR.$algorithmName;
+		$basePath = ClientRequest::$runRequest->storagePath.DIRECTORY_SEPARATOR.$flag.DIRECTORY_SEPARATOR.$algorithmName;
 
 		if(!is_dir($basePath)) {
 			mkdir($basePath, 0755, TRUE);
@@ -205,7 +206,7 @@ class OrderService
 		}
 
 		file_put_contents(
-			Client::$runtime->storagePath.DIRECTORY_SEPARATOR.$flag.DIRECTORY_SEPARATOR.'DOMAIN',
+			ClientRequest::$runRequest->storagePath.DIRECTORY_SEPARATOR.$flag.DIRECTORY_SEPARATOR.'DOMAIN',
 			implode("\r\n", $this->_domainList)
 		);
 	}
@@ -233,12 +234,12 @@ class OrderService
 		];
 
 		$jws = OpenSSLHelper::generateJWSOfKid(
-			Client::$runtime->endpoint->newOrder,
-			Client::$runtime->account->getAccountUrl(),
+			ClientRequest::$runRequest->endpoint->newOrder,
+			ClientRequest::$runRequest->account->getAccountUrl(),
 			$payload
 		);
 
-		list($code, $header, $body) = RequestHelper::post(Client::$runtime->endpoint->newOrder, $jws);
+		list($code, $header, $body) = RequestHelper::post(ClientRequest::$runRequest->endpoint->newOrder, $jws);
 
 		if($code != 201) {
 			throw new \Exception('Create order failed, the domain list is: '.implode(', ', $this->_domainList).", the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
@@ -405,7 +406,7 @@ class OrderService
 		$certificate = trim(CommonHelper::base64UrlSafeEncode(base64_decode($certificate)));
 
 		$jws = OpenSSLHelper::generateJWSOfJWK(
-			Client::$runtime->endpoint->revokeCert,
+			ClientRequest::$runRequest->endpoint->revokeCert,
 			[
 				'certificate' => $certificate,
 				'reason' => $reason,
@@ -413,7 +414,7 @@ class OrderService
 			$this->getPrivateKey()
 		);
 
-		list($code, $header, $body) = RequestHelper::post(Client::$runtime->endpoint->revokeCert, $jws);
+		list($code, $header, $body) = RequestHelper::post(ClientRequest::$runRequest->endpoint->revokeCert, $jws);
 
 		if($code != 200) {
 			throw new \Exception("Revoke certificate failed, the domain list is: ".implode(', ', $this->_domainList).", the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
@@ -455,7 +456,7 @@ class OrderService
 	{
 		$jws = OpenSSLHelper::generateJWSOfKid(
 			$this->finalize,
-			Client::$runtime->account->getAccountUrl(),
+			ClientRequest::$runRequest->account->getAccountUrl(),
 			['csr' => trim(CommonHelper::base64UrlSafeEncode(base64_decode($csr)))]
 		);
 

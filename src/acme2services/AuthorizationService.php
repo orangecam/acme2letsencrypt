@@ -8,15 +8,16 @@
  * @license https://opensource.org/licenses/mit-license.php MIT License
  */
 
-namespace orangecam\acme2letsencrypt\services;
+namespace orangecam\acme2letsencrypt\acme2services;
 
 use orangecam\acme2letsencrypt\constants\ConstantVariables;
 use orangecam\acme2letsencrypt\helpers\CommonHelper;
 use orangecam\acme2letsencrypt\helpers\OpenSSLHelper;
+use orangecam\acme2letsencrypt\ClientRequest;
 
 /**
  * Class AuthorizationService
- * @package orangecam\acme2letsencrypt\services
+ * @package orangecam\acme2letsencrypt\acme2services
  */
 class AuthorizationService
 {
@@ -131,7 +132,7 @@ class AuthorizationService
 
 		$jwk = OpenSSLHelper::generateJWSOfKid(
 			$challenge['url'],
-			Client::$runtime->account->getAccountUrl(),
+			ClientRequest::$runRequest->account->getAccountUrl(),
 			['keyAuthorization' => $keyAuthorization]
 		);
 

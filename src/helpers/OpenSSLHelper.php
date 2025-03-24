@@ -11,6 +11,7 @@
 namespace orangecam\acme2letsencrypt\helpers;
 
 use orangecam\acme2letsencrypt\constants\ConstantVariables;
+use orangecam\acme2letsencrypt\ClientRequest;
 
 /**
  * Class OpenSSLHelper
@@ -126,7 +127,7 @@ class OpenSSLHelper
 	 */
 	public static function generateThumbprint($privateKey = NULL)
 	{
-		$privateKey = openssl_pkey_get_private($privateKey ?: Client::$runtime->account->getPrivateKey());
+		$privateKey = openssl_pkey_get_private($privateKey ?: ClientRequest::$runRequest->account->getPrivateKey());
 		$detail = openssl_pkey_get_details($privateKey);
 
 		$accountKey = [
@@ -148,7 +149,7 @@ class OpenSSLHelper
 	 */
 	public static function generateJWSOfJWK($url, $payload, $privateKey = NULL)
 	{
-		$privateKey = openssl_pkey_get_private($privateKey ?: Client::$runtime->account->getPrivateKey());
+		$privateKey = openssl_pkey_get_private($privateKey ?: ClientRequest::$runRequest->account->getPrivateKey());
 		$detail = openssl_pkey_get_details($privateKey);
 
 		$protected = [
@@ -158,7 +159,7 @@ class OpenSSLHelper
 				'n' => CommonHelper::base64UrlSafeEncode($detail['rsa']['n']),
 				'e' => CommonHelper::base64UrlSafeEncode($detail['rsa']['e']),
 			],
-			'nonce' => Client::$runtime->nonce->get(),
+			'nonce' => ClientRequest::$runRequest->nonce->getNewNonce(),
 			'url' => $url,
 		];
 
@@ -185,12 +186,12 @@ class OpenSSLHelper
 	 */
 	public static function generateJWSOfKid($url, $kid, $payload)
 	{
-		$privateKey = openssl_pkey_get_private(Client::$runtime->account->getPrivateKey());
+		$privateKey = openssl_pkey_get_private(ClientRequest::$runRequest->account->getPrivateKey());
 
 		$protected = [
 			'alg' => 'RS256',
 			'kid' => $kid,
-			'nonce' => Client::$runtime->nonce->get(),
+			'nonce' => ClientRequest::$runRequest->nonce->getNewNonce(),
 			'url' => $url,
 		];
 

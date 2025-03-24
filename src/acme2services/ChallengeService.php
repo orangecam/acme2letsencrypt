@@ -8,11 +8,13 @@
  * @license https://opensource.org/licenses/mit-license.php MIT License
  */
 
-namespace orangecam\acme2letsencrypt\services;
+namespace orangecam\acme2letsencrypt\acme2services;
+
+use orangecam\acme2letsencrypt\ClientRequest;
 
 /**
  * Class ChallengeService
- * @package orangecam\acme2letsencrypt\services
+ * @package orangecam\acme2letsencrypt\acme2services
  */
 class ChallengeService
 {
@@ -30,14 +32,14 @@ class ChallengeService
 
 	/**
 	 * Authorization inntance
-	 * @var \orangecam\acme2letsencrypt\services\AuthorizationService
+	 * @var \orangecam\acme2letsencrypt\acme2services\AuthorizationService
 	 */
 	private $_authorication;
 
 	/**
 	 * ChallengeService constructor.
 	 * @param string $type
-	 * @param \orangecam\acme2letsencrypt\services\AuthorizationService $authorization
+	 * @param \orangecam\acme2letsencrypt\acme2services\AuthorizationService $authorization
 	 */
 	public function __construct($type, $authorization)
 	{
@@ -81,7 +83,7 @@ class ChallengeService
 	 */
 	public function verify($verifyLocallyTimeout = 0, $verifyCATimeout = 0)
 	{
-		$orderService = Client::$runtime->order;
+		$orderService = ClientRequest::$runRequest->order;
 
 		if($orderService->isAllAuthorizationValid() === TRUE) {
 			return TRUE;

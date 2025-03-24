@@ -90,7 +90,7 @@ class RunRequest
 		//Setup the account service
 		$this->account = new AccountService($this->storagePath.'/account');
 		//Setup the nonce service
-		$this->nonce = new NonceService();
+		$this->nonce = new NonceService($this->endpoint);
 		//Get the account details
 		$this->account->init();
 	}
