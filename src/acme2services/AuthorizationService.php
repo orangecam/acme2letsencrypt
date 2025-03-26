@@ -91,7 +91,7 @@ class AuthorizationService
 		//If acme2 endpoint is not responding, then throw an error
 		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
 			//Throw the Exception error
-			throw new \Exception("Get authorization info failed, the authorization url is: {$this->authorizationUrl}, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}, the body is: ".print_r($response->getBody()->__toString(), TRUE));
+			throw new \Exception("Get authorization info failed, the authorization url is: {$this->authorizationUrl}, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}, the body is: {".print_r($response->getBody()->__toString(), TRUE)."}");
 		}
 		//Get the body
 		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
@@ -152,7 +152,7 @@ class AuthorizationService
 		//If acme2 endpoint is not responding, then throw an error
 		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
 			//Throw the Exception error
-			throw new \Exception("Send Request to letsencrypt to verify authorization failed, the url is: {".$challenge['url']."}, the domain is: {$this->identifier['value']}, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}, the body is: ".print_r($response->getBody()->__toString(), TRUE));
+			throw new \Exception("Send Request to letsencrypt to verify authorization failed, the url is: {".$challenge['url']."}, the domain is: {$this->identifier['value']}, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}, the body is: {".print_r($response->getBody()->__toString(), TRUE)."}");
 		}
 		//VerifyCA
 		$this->verifyCA($type, $verifyCATimeout);
