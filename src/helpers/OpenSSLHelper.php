@@ -47,16 +47,19 @@ class OpenSSLHelper
 		$resource = openssl_pkey_new($configMap[$type]);
 
 		if($resource === FALSE) {
+			//Throw the Exception error
 			throw new \Exception("Generate {$typeNameMap[$type]} key pair failed.");
 		}
 
 		if(openssl_pkey_export($resource, $privateKey) === FALSE) {
+			//Throw the Exception error
 			throw new \Exception("Export {$typeNameMap[$type]} private key failed.");
 		}
 
 		$detail = openssl_pkey_get_details($resource);
 
 		if($detail === FALSE) {
+			//Throw the Exception error
 			throw new \Exception("Get {$typeNameMap[$type]} key details failed.");
 		}
 
@@ -73,7 +76,7 @@ class OpenSSLHelper
 	 * @param string $privateKey
 	 * @return mixed
 	 */
-	public static function generateCSR($domainList, $dn, $privateKey)
+	public static function generateCSR(array $domainList, array $dn, string $privateKey)
 	{
 		$san = array_map(
 			function($domain) {
@@ -125,7 +128,7 @@ class OpenSSLHelper
 	 * @param string|null $privateKey
 	 * @return mixed
 	 */
-	public static function generateThumbprint($privateKey = NULL)
+	public static function generateThumbprint(string|null $privateKey = NULL)
 	{
 		$privateKey = openssl_pkey_get_private($privateKey ?: ClientRequest::$runRequest->account->getPrivateKey());
 		$detail = openssl_pkey_get_details($privateKey);
@@ -147,7 +150,7 @@ class OpenSSLHelper
 	 * @return string
 	 * @throws \Exception
 	 */
-	public static function generateJWSOfJWK($url, $payload, $privateKey = NULL)
+	public static function generateJWSOfJWK(string $url, array|string $payload, string|null $privateKey = NULL)
 	{
 		$privateKey = openssl_pkey_get_private($privateKey ?: ClientRequest::$runRequest->account->getPrivateKey());
 		$detail = openssl_pkey_get_details($privateKey);
@@ -184,7 +187,7 @@ class OpenSSLHelper
 	 * @return string
 	 * @throws \Exception
 	 */
-	public static function generateJWSOfKid($url, $kid, $payload)
+	public static function generateJWSOfKid(string $url, string $kid, array|string $payload)
 	{
 		$privateKey = openssl_pkey_get_private(ClientRequest::$runRequest->account->getPrivateKey());
 

@@ -69,7 +69,7 @@ class ChallengeService
 	 * Set challenge credential
 	 * @param array $credential
 	 */
-	public function setCredential($credential)
+	public function setCredential(array $credential)
 	{
 		$this->_credential = $credential;
 	}
@@ -81,7 +81,7 @@ class ChallengeService
 	 * @return bool
 	 * @throws \Exception
 	 */
-	public function verify($verifyLocallyTimeout = 0, $verifyCATimeout = 0)
+	public function verify(int $verifyLocallyTimeout = 0, int $verifyCATimeout = 0)
 	{
 		$orderService = ClientRequest::$runRequest->order;
 

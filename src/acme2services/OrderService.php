@@ -14,6 +14,7 @@ use orangecam\acme2letsencrypt\constants\ConstantVariables;
 use orangecam\acme2letsencrypt\helpers\CommonHelper;
 use orangecam\acme2letsencrypt\helpers\OpenSSLHelper;
 use orangecam\acme2letsencrypt\ClientRequest;
+use GuzzleHttp\Client as GuzzleHttpClient;
 
 /**
  * Class OrderService
@@ -218,43 +219,52 @@ class OrderService
 	 */
 	private function createOrder()
 	{
+		//Hold list
 		$identifierList = [];
-
+		//Prepare domain list
 		foreach($this->_domainList as $domain) {
 			$identifierList[] = [
 				'type' => 'dns',
 				'value' => $domain,
 			];
 		}
-
+		//Payload
 		$payload = [
 			'identifiers' => $identifierList,
 			'notBefore' => '',
 			'notAfter' => '',
 		];
-
+		//More Payload
 		$jws = OpenSSLHelper::generateJWSOfKid(
 			ClientRequest::$runRequest->endpoint->newOrder,
 			ClientRequest::$runRequest->account->getAccountUrl(),
 			$payload
 		);
-
-		list($code, $header, $body) = RequestHelper::post(ClientRequest::$runRequest->endpoint->newOrder, $jws);
-
-		if($code != 201) {
-			throw new \Exception('Create order failed, the domain list is: '.implode(', ', $this->_domainList).", the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
+		//Setup the GuzzleHttpClient
+		$client = new GuzzleHttpClient();
+		//Send the HEAD request and get the response
+		$response = $client->request('POST', $accountUrl, $jws);
+		//If acme2 endpoint is not responding, then throw an error
+		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 201) {
+			//Throw the Exception error
+			throw new \Exception('Create order failed, the domain list is: '.implode(', ', $this->_domainList).", the code is: {$response->getStatusCode()}, the header is: {".print_r($response->getHeaders(), true)."}, the body is: ".print_r($body, TRUE));
 		}
-
-		if(($orderUrl = CommonHelper::getLocationFieldFromHeader($header)) === FALSE) {
+		//Get the Location header
+		$orderUrl = $response->getHeaderLine('Location');
+		//If header does not exist, then throw an error
+		if(empty($orderUrl)) {
+			//Throw the Exception error
 			throw new \Exception('Get order url failed during order creation, the domain list is: '.implode(', ', $this->_domainList));
 		}
-
+		//Get the body
+		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		//Merge data
 		$orderInfo = array_merge($body, ['orderUrl' => $orderUrl]);
-
+		//Populate it
 		$this->populate($orderInfo);
 		$this->setOrderInfoToCache(['orderUrl' => $orderUrl]);
 		$this->getAuthorizationList();
-
+		//Return
 		return $orderInfo;
 	}
 
@@ -264,26 +274,34 @@ class OrderService
 	 * @return array
 	 * @throws \Exception
 	 */
-	private function getOrder($getAuthorizationList = TRUE)
+	private function getOrder(bool $getAuthorizationList = TRUE)
 	{
+		//Check if is_file order
 		if(!is_file($this->_orderInfoPath)) {
+			//Throw the Exception error
 			throw new \Exception("Get order info failed, the local order info file doesn't exist, the order info file path is: {$this->_orderInfoPath}");
 		}
-
+		//Get the orderUrl
 		$orderUrl = $this->getOrderInfoFromCache()['orderUrl'];
-
-		list($code, $header, $body) = RequestHelper::get($orderUrl);
-
-		if($code != 200) {
-			throw new \Exception("Get order info failed, the order url is: {$orderUrl}, the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
+		//Setup the GuzzleHttpClient
+		$client = new GuzzleHttpClient();
+		//Send the HEAD request and get the response
+		$response = $client->request('GET', $orderUrl);
+		//If acme2 endpoint is not responding, then throw an error
+		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
+			//Throw the Exception error
+			throw new \Exception("Get order info failed, the order url is: {$orderUrl}, the code is: {$response->getStatusCode()}, the header is: {".print_r($response->getHeaders(), true)."}, the body is: ".print_r($body, TRUE));
 		}
-
+		//Get the body
+		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		//Populate
 		$this->populate(array_merge($body, ['orderUrl' => $orderUrl]));
-
+		//Check if authorization list is true
 		if($getAuthorizationList === TRUE) {
+			//getAuthorizationList()
 			$this->getAuthorizationList();
 		}
-
+		//Return
 		return array_merge($body, ['orderUrl' => $orderUrl]);
 	}
 
@@ -346,36 +364,43 @@ class OrderService
 	 * @return array
 	 * @throws \Exception
 	 */
-	public function getCertificateFile($csr = NULL)
+	public function getCertificateFile(string|null $csr = NULL)
 	{
+		//isAllAuthorizationValid()
 		if($this->isAllAuthorizationValid() === FALSE) {
+			//Throw the Exception error
 			throw new \Exception("There are still some authorizations that are not valid.");
 		}
-
+		//WaitStatus
 		$this->waitStatus('ready');
 		$this->finalizeOrder(CommonHelper::getCSRWithoutComment($csr ?: $this->getCSR()));
 		$this->waitStatus('valid');
-
-		list($code, $header, $body) = RequestHelper::get($this->certificate);
-
-		if($code != 200) {
-			throw new \Exception("Fetch certificate from letsencrypt failed, the url is: {$this->certificate}, the domain list is: ".implode(', ', $this->_domainList).", the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
+		//Setup the GuzzleHttpClient
+		$client = new GuzzleHttpClient();
+		//Send the HEAD request and get the response
+		$response = $client->request('GET', $this->certificate);
+		//If acme2 endpoint is not responding, then throw an error
+		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
+			//Throw the Exception error
+			throw new \Exception("Fetch certificate from letsencrypt failed, the url is: {$this->certificate}, the domain list is: ".implode(', ', $this->_domainList).", the code is: {$response->getStatusCode()}, the header is: {".print_r($response->getHeaders(), true)."}, the body is: ".print_r($body, TRUE));
 		}
-
+		//Get the body
+		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		//Cert map, body
 		$certificateMap = CommonHelper::extractCertificate($body);
-
+		//Put the contents in the folder
 		file_put_contents($this->_certificatePath, $certificateMap['certificate']);
 		file_put_contents($this->_certificateFullChainedPath, $certificateMap['certificateFullChained']);
-
+		//Parse x509 cert
 		$certificateInfo = openssl_x509_parse($certificateMap['certificate']);
-
+		//Set order info
 		$this->setOrderInfoToCache([
 			'validFromTimestamp' => $certificateInfo['validFrom_time_t'],
 			'validToTimestamp' => $certificateInfo['validTo_time_t'],
 			'validFromTime' => date('Y-m-d H:i:s', $certificateInfo['validFrom_time_t']),
 			'validToTime' => date('Y-m-d H:i:s', $certificateInfo['validTo_time_t']),
 		]);
-
+		//Return
 		return [
 			'privateKey' => realpath($this->_privateKeyPath),
 			'publicKey' => realpath($this->_publicKeyPath),
@@ -392,19 +417,22 @@ class OrderService
 	 * @return bool
 	 * @throws \Exception
 	 */
-	public function revokeCertificate($reason = 0)
+	public function revokeCertificate(int $reason = 0)
 	{
+		//If status is not valid, then error
 		if($this->status != 'valid') {
+			//Throw the Exception error
 			throw new \Exception("Revoke certificate failed because of invalid status({$this->status})");
 		}
-
+		//If file does not exist, then error
 		if(!is_file($this->_certificatePath)) {
+			//Throw the Exception error
 			throw new \Exception("Revoke certificate failed because of certicate file missing({$this->_certificatePath})");
 		}
-
+		//Get certs
 		$certificate = CommonHelper::getCertificateWithoutComment(file_get_contents($this->_certificatePath));
 		$certificate = trim(CommonHelper::base64UrlSafeEncode(base64_decode($certificate)));
-
+		//Payload
 		$jws = OpenSSLHelper::generateJWSOfJWK(
 			ClientRequest::$runRequest->endpoint->revokeCert,
 			[
@@ -413,13 +441,16 @@ class OrderService
 			],
 			$this->getPrivateKey()
 		);
-
-		list($code, $header, $body) = RequestHelper::post(ClientRequest::$runRequest->endpoint->revokeCert, $jws);
-
-		if($code != 200) {
-			throw new \Exception("Revoke certificate failed, the domain list is: ".implode(', ', $this->_domainList).", the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
+		//Setup the GuzzleHttpClient
+		$client = new GuzzleHttpClient();
+		//Send the HEAD request and get the response
+		$response = $client->request('POST', ClientRequest::$runRequest->endpoint->revokeCert, $jws);
+		//If acme2 endpoint is not responding, then throw an error
+		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
+			//Throw the Exception error
+			throw new \Exception("Revoke certificate failed, the domain list is: ".implode(', ', $this->_domainList).", the code is: {$response->getStatusCode()}, the header is: {".print_r($response->getHeaders(), true)."}, the body is: ".print_r($body, TRUE));
 		}
-
+		//Return
 		return TRUE;
 	}
 
@@ -452,20 +483,26 @@ class OrderService
 	 * @param string $csr
 	 * @throws \Exception
 	 */
-	private function finalizeOrder($csr)
+	private function finalizeOrder(string $csr)
 	{
+		//Payload
 		$jws = OpenSSLHelper::generateJWSOfKid(
 			$this->finalize,
 			ClientRequest::$runRequest->account->getAccountUrl(),
 			['csr' => trim(CommonHelper::base64UrlSafeEncode(base64_decode($csr)))]
 		);
-
-		list($code, $header, $body) = RequestHelper::post($this->finalize, $jws);
-
-		if($code != 200) {
-			throw new \Exception("Finalize order failed, the url is: {$this->finalize}, the domain list is: ".implode(', ', $this->_domainList).", the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
+		//Setup the GuzzleHttpClient
+		$client = new GuzzleHttpClient();
+		//Send the HEAD request and get the response
+		$response = $client->request('POST', $this->finalize, $jws);
+		//If acme2 endpoint is not responding, then throw an error
+		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
+			//Throw the Exception error
+			throw new \Exception("Finalize order failed, the url is: {$this->finalize}, the domain list is: ".implode(', ', $this->_domainList).", the code is: {$response->getStatusCode()}, the header is: {".print_r($response->getHeaders(), true)."}, the body is: ".print_r($body, TRUE));
 		}
-
+		//Get the body
+		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		//Populate
 		$this->populate($body);
 		$this->getAuthorizationList();
 	}
@@ -543,6 +580,7 @@ class OrderService
 		$result = file_put_contents($this->_privateKeyPath, $keyPair['privateKey']) && file_put_contents($this->_publicKeyPath, $keyPair['publicKey']);
 
 		if($result === FALSE) {
+			//Throw the Exception error
 			throw new \Exception('Create order key pair files failed, the domain list is: '.implode(', ', $this->_domainList).", the private key path is: {$this->_privateKeyPath}, the public key path is: {$this->_publicKeyPath}");
 		}
 	}

@@ -14,6 +14,7 @@ use orangecam\acme2letsencrypt\helpers\CommonHelper;
 use orangecam\acme2letsencrypt\helpers\OpenSSLHelper;
 use orangecam\acme2letsencrypt\constants\ConstantVariables;
 use orangecam\acme2letsencrypt\ClientRequest;
+use GuzzleHttp\Client as GuzzleHttpClient;
 
 /**
  * Class AccountService
@@ -88,13 +89,14 @@ class AccountService
 
 	/**
 	 * AccountService constructor.
-	 * @param $accountStoragePath
+	 * @param string $accountStoragePath
 	 * @throws \Exception
 	 */
-	public function __construct($accountStoragePath)
+	public function __construct(string $accountStoragePath)
 	{
 		//Check if storage path is not there, then create it if possible
 		if(!is_dir($accountStoragePath) && mkdir($accountStoragePath, 0755, TRUE) === FALSE) {
+			//Throw the Exception error
 			throw new \Exception("create directory({$accountStoragePath}) failed, please check the permission.");
 		}
 		//Set the path for the private and public pem files for the account
@@ -127,39 +129,46 @@ class AccountService
 	 */
 	private function createAccount()
 	{
+		//Create the key pair for the account
 		$this->createKeyPairFile();
-
+		//Contact list of emails
 		$contactList = array_map(
 			function($email) {
 				return "mailto:{$email}";
 			},
 			ClientRequest::$runRequest->emailList
 		);
-
+		//Payload
 		$payload = [
 			'contact' => $contactList,
 			'termsOfServiceAgreed' => TRUE,
 		];
-
+		//Merge payload
 		$jws = OpenSSLHelper::generateJWSOfJWK(
 			ClientRequest::$runRequest->endpoint->newAccount,
 			$payload
 		);
-
-		list($code, $header, $body) = RequestHelper::post(ClientRequest::$runRequest->endpoint->newAccount, $jws);
-
-		if($code != 201) {
-			throw new \Exception("Create account failed, the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
+		//Setup the GuzzleHttpClient
+		$client = new GuzzleHttpClient();
+		//Send the HEAD request and get the response
+		$response = $client->request('POST', ClientRequest::$runRequest->endpoint->newAccount, $jws);
+		//If acme2 endpoint is not responding, then throw an error
+		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 201) {
+			//Throw the Exception error
+			throw new \Exception("Create account failed, the code is: {$response->getStatusCode()}, the headers are: ".print_r($response->getHeaders(), true).", the body is: ".print_r($response->getBody()->__toString(), TRUE));
 		}
-
-		if(!($accountUrl = CommonHelper::getLocationFieldFromHeader($header))) {
-			throw new \Exception("Parse account url failed, the header is: {$header}");
+		//Get the Replay-Nonce header
+		$accountUrl = $response->getHeaderLine('Location');
+		//If header does not exist, then throw an error
+		if(empty($accountUrl)) {
+			//Throw the Exception error
+			throw new \Exception("Parse account url failed, the header is: {".print_r($response->getHeaders(), true)."}");
 		}
-
+		//Merge the arrays
 		$accountInfo = array_merge($body, ['accountUrl' => $accountUrl]);
-
+		//Populate it in the class
 		$this->populate($accountInfo);
-
+		//Return
 		return $accountInfo;
 	}
 
@@ -170,22 +179,28 @@ class AccountService
 	 */
 	private function getAccount()
 	{
+		//Get the account
 		$accountUrl = $this->getAccountUrl();
-
+		//Prepare the body of the post request
 		$jws = OpenSSLHelper::generateJWSOfKid(
 			$accountUrl,
 			$accountUrl,
 			['' => '']
 		);
-
-		list($code, $header, $body) = RequestHelper::post($accountUrl, $jws);
-
-		if($code != 200) {
-			throw new \Exception("Get account info failed, the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
+		//Setup the GuzzleHttpClient
+		$client = new GuzzleHttpClient();
+		//Send the HEAD request and get the response
+		$response = $client->request('POST', $accountUrl, $jws);
+		//If acme2 endpoint is not responding, then throw an error
+		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
+			//Throw the Exception error
+			throw new \Exception("Get account info failed, the code is: {$response->getStatusCode()}, the headers are: ".print_r($response->getHeaders(), true).", the body is: ".print_r($response->getBody()->__toString(), TRUE));
 		}
-
+		//Get the body
+		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		//Populate
 		$this->populate($body);
-
+		//Return
 		return array_merge($body, ['accountUrl' => $accountUrl]);
 	}
 
@@ -196,61 +211,75 @@ class AccountService
 	 */
 	public function getAccountUrl()
 	{
+		//Return the accountUrl if already set
 		if($this->accountUrl) {
+			//Return
 			return $this->accountUrl;
 		}
-
+		//Prepare the body of the post request
 		$jws = OpenSSLHelper::generateJWSOfJWK(
 			ClientRequest::$runRequest->endpoint->newAccount,
 			['onlyReturnExisting' => TRUE]
 		);
-
-		list($code, $header, $body) = RequestHelper::post(ClientRequest::$runRequest->endpoint->newAccount, $jws);
-
-		if($code != 200) {
-			throw new \Exception("Get account url failed, the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
+		//Setup the GuzzleHttpClient
+		$client = new GuzzleHttpClient();
+		//Send the HEAD request and get the response
+		$response = $client->request('POST', ClientRequest::$runRequest->endpoint->newAccount, $jws);
+		//If acme2 endpoint is not responding, then throw an error
+		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
+			//Throw the Exception error
+			throw new \Exception("Get account url failed, the code is: {$response->getStatusCode()}, the headers are: ".print_r($response->getHeaders(), true).", the body is: ".print_r($response->getBody()->__toString(), TRUE));
 		}
-
-		if(!($accountUrl = CommonHelper::getLocationFieldFromHeader($header))) {
-			throw new \Exception("Parse account url failed, the header is: {$header}");
+		//Get the Location header
+		$accountUrl = $response->getHeaderLine('Location');
+		//If header does not exist, then throw an error
+		if(empty($accountUrl)) {
+			//Throw the Exception error
+			throw new \Exception("The header doesn't contain `Location`, the url is: {$newNonceUrl}");
 		}
-
+		//Save the accountUrl
 		$this->accountUrl = $accountUrl;
-
+		//Return the accountUrl
 		return $this->accountUrl;
 	}
 
 	/**
 	 * Update account contact info
-	 * @param $emailList
+	 * @param array $emailList
 	 * @return array
 	 * @throws \Exception
 	 */
-	public function updateAccountContact($emailList)
+	public function updateAccountContact(array $emailList)
 	{
+		//Get the accountUrl
 		$accountUrl = $this->getAccountUrl();
-
+		//Prepare contact list
 		$contactList = array_map(
 			function($email) {
 				return "mailto:{$email}";
 			},
 			$emailList
 		);
-
+		//Prepare the body of the post request
 		$jws = OpenSSLHelper::generateJWSOfKid(
 			$accountUrl,
 			$accountUrl,
 			['contact' => $contactList]
 		);
-
-		list($code, $header, $body) = RequestHelper::post($accountUrl, $jws);
-
-		if($code != 200) {
-			throw new \Exception("Update account contact info failed, the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
+		//Setup the GuzzleHttpClient
+		$client = new GuzzleHttpClient();
+		//Send the HEAD request and get the response
+		$response = $client->request('POST', $accountUrl, $jws);
+		//If acme2 endpoint is not responding, then throw an error
+		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
+			//Throw the Exception error
+			throw new \Exception("Update account contact info failed, the code is: {$response->getStatusCode()}, the headers are: ".print_r($response->getHeaders(), true).", the body is: ".print_r($response->getBody()->__toString(), TRUE));
 		}
-
+		//Get the body
+		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		//Populate
 		$this->populate($body);
-
+		//Return
 		return array_merge($body, ['accountUrl' => $accountUrl]);
 	}
 
@@ -260,11 +289,12 @@ class AccountService
 	 */
 	public function updateAccountKey()
 	{
+		//Get a new keyPair
 		$keyPair = OpenSSLHelper::generateKeyPair(ConstantVariables::KEY_PAIR_TYPE_RSA);
-
+		//Get the details of it
 		$privateKey = openssl_pkey_get_private($keyPair['privateKey']);
 		$detail = openssl_pkey_get_details($privateKey);
-
+		//Payload
 		$innerPayload = [
 			'account' => $this->getAccountUrl(),
 			'newKey' => [
@@ -273,28 +303,34 @@ class AccountService
 				'e' => CommonHelper::base64UrlSafeEncode($detail['rsa']['e']),
 			],
 		];
-
+		//More Payload
 		$outerPayload = OpenSSLHelper::generateJWSOfJWK(
 			ClientRequest::$runRequest->endpoint->keyChange,
 			$innerPayload,
 			$keyPair['privateKey']
 		);
-
+		//More Payload
 		$jws = OpenSSLHelper::generateJWSOfKid(
 			ClientRequest::$runRequest->endpoint->keyChange,
 			$this->getAccountUrl(),
 			$outerPayload
 		);
-
-		list($code, $header, $body) = RequestHelper::post(ClientRequest::$runRequest->endpoint->keyChange, $jws);
-
-		if($code != 200) {
-			throw new \Exception("Update account key failed, the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
+		//Setup the GuzzleHttpClient
+		$client = new GuzzleHttpClient();
+		//Send the HEAD request and get the response
+		$response = $client->request('POST', ClientRequest::$runRequest->endpoint->keyChange, $jws);
+		//If acme2 endpoint is not responding, then throw an error
+		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
+			//Throw the Exception error
+			throw new \Exception("Update account key failed, the code is: {$response->getStatusCode()}, the headers are: ".print_r($response->getHeaders(), true).", the body is: ".print_r($response->getBody()->__toString(), TRUE));
 		}
-
+		//Get the body
+		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		//Populate
 		$this->populate($body);
+		//KeyPair
 		$this->createKeyPairFile($keyPair);
-
+		//Return
 		return array_merge($body, ['accountUrl' => $this->getAccountUrl()]);
 	}
 
@@ -305,23 +341,29 @@ class AccountService
 	 */
 	public function deactivateAccount()
 	{
+		//Payload
 		$jws = OpenSSLHelper::generateJWSOfKid(
 			$this->getAccountUrl(),
 			$this->getAccountUrl(),
 			['status' => 'deactivated']
 		);
-
-		list($code, $header, $body) = RequestHelper::post($this->getAccountUrl(), $jws);
-
-		if($code != 200) {
-			throw new \Exception("Deactivate account failed, the code is: {$code}, the header is: {$header}, the body is: ".print_r($body, TRUE));
+		//Setup the GuzzleHttpClient
+		$client = new GuzzleHttpClient();
+		//Send the HEAD request and get the response
+		$response = $client->request('POST', $this->getAccountUrl(), $jws);
+		//If acme2 endpoint is not responding, then throw an error
+		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
+			//Throw the Exception error
+			throw new \Exception("Deactivate account failed, the code is: {$response->getStatusCode()}, the headers are: ".print_r($response->getHeaders(), true).", the body is: ".print_r($response->getBody()->__toString(), TRUE));
 		}
-
+		//Get the body
+		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		//Populate
 		$this->populate($body);
-
+		//Remove the keys
 		@unlink($this->_privateKeyPath);
 		@unlink($this->_publicKeyPath);
-
+		//Return
 		return array_merge($body, ['accountUrl' => $this->getAccountUrl()]);
 	}
 
@@ -331,6 +373,7 @@ class AccountService
 	 */
 	public function getPrivateKey()
 	{
+		//Return path
 		return file_get_contents($this->_privateKeyPath);
 	}
 
@@ -339,13 +382,15 @@ class AccountService
 	 * @param array|null $keyPair
 	 * @throws \Exception
 	 */
-	private function createKeyPairFile($keyPair = NULL)
+	private function createKeyPairFile(array|null $keyPair = NULL)
 	{
+		//Generate the keyPair
 		$keyPair = $keyPair ?: OpenSSLHelper::generateKeyPair(ConstantVariables::KEY_PAIR_TYPE_RSA);
-
+		//Put the contents on the server
 		$result = file_put_contents($this->_privateKeyPath, $keyPair['privateKey']) && file_put_contents($this->_publicKeyPath, $keyPair['publicKey']);
-
+		//Check if it was able to put the files on the server
 		if($result === FALSE) {
+			//Throw the Exception error
 			throw new \Exception("Create account key pair files failed, the private key path is: {$this->_privateKeyPath}, the public key path is: {$this->_publicKeyPath}");
 		}
 	}
@@ -354,7 +399,7 @@ class AccountService
 	 * Populate properties of instance
 	 * @param array $accountInfo
 	 */
-	private function populate($accountInfo)
+	private function populate(array $accountInfo)
 	{
 		//Populate if property exists
 		foreach($accountInfo as $key => $value) {

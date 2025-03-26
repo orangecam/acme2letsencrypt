@@ -33,7 +33,7 @@ class NonceService
 		//Send the HEAD request and get the response
 		$response = $client->request('HEAD', $newNonceUrl);
 		//If acme2 endpoint is not responding, then throw an error
-		if($response instanceof \GuzzleHttp\Psr7\Response && $response->getStatusCode() != 200) {
+		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
 			//Throw the Exception error
 			throw new \Exception("Get new nonce failed, the url is: {$newNonceUrl}");
 		}
@@ -41,6 +41,7 @@ class NonceService
 		$replay_nonce_header = $response->getHeaderLine('Replay-Nonce');
 		//If header does not exist, then throw an error
 		if(empty($replay_nonce_header)) {
+			//Throw the Exception error
 			throw new \Exception("Get new nonce failed, the header doesn't contain `Replay-Nonce`, the url is: {$newNonceUrl}");
 		}
 		//Return the nonce

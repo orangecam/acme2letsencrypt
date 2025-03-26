@@ -23,45 +23,9 @@ class CommonHelper
 	 * @param string $string
 	 * @return mixed
 	 */
-	public static function base64UrlSafeEncode($string)
+	public static function base64UrlSafeEncode(string $string)
 	{
 		return str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($string));
-	}
-
-	/**
-	 * Get replay nonce from http response header
-	 * @param string $header
-	 * @return bool|string
-	 */
-	public static function getNonceFromResponseHeader($header)
-	{
-		return $this->getFieldFromHeader('Replay-Nonce', $header);
-	}
-
-	/**
-	 * Get location field from http response header
-	 * @param string $header
-	 * @return bool|string
-	 */
-	public static function getLocationFieldFromHeader($header)
-	{
-		return $this->getFieldFromHeader('Location', $header);
-	}
-
-	/**
-	 * Get field from http response header
-	 * @param string $field
-	 * @param string $header
-	 * @return bool|string
-	 */
-	public static function getFieldFromHeader($field, $header)
-	{
-		//Check it
-		if(!preg_match("/{$field}:\s*(\S+)/i", $header, $matches)){
-			return FALSE;
-		}
-		//Return
-		return trim($matches[1]);
 	}
 
 	/**
@@ -71,7 +35,7 @@ class CommonHelper
 	 * @param string $fileContent
 	 * @return bool
 	 */
-	public static function checkHttpChallenge($domain, $fileName, $fileContent)
+	public static function checkHttpChallenge(string $domain, string $fileName, string $fileContent)
 	{
 		//Setup the URL for use in the function
 		$url = "http://{$domain}/.well-known/acme-challenge/{$fileName}";
@@ -80,7 +44,7 @@ class CommonHelper
 		//Send the HEAD request and get the response
 		$response = $client->request('GET', $url);
 		//If acme2 endpoint is not responding, then throw an error
-		if($response instanceof \GuzzleHttp\Psr7\Response && $response->getStatusCode() != 200) {
+		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
 			//Throw the Exception error
 			throw new \Exception("Get url failed, the file is not reachable at: {$url}");
 		}
@@ -101,7 +65,7 @@ class CommonHelper
 	 * @param string $dnsContent
 	 * @return bool
 	 */
-	public static function checkDNSChallenge($domain, $dnsContent)
+	public static function checkDNSChallenge(string $domain, string $dnsContent)
 	{
 		//Setup
 		$host = '_acme-challenge.'.str_replace('*.', '', $domain);
@@ -124,7 +88,7 @@ class CommonHelper
 	 * @param array $domainList
 	 * @return mixed
 	 */
-	public static function getCommonNameForCSR($domainList)
+	public static function getCommonNameForCSR(array $domainList)
 	{
 		$domainLevel = [];
 
@@ -146,7 +110,7 @@ class CommonHelper
 	 * @param string $csr
 	 * @return string
 	 */
-	public static function getCSRWithoutComment($csr)
+	public static function getCSRWithoutComment(string $csr)
 	{
 		//Setup
 		$pattern = '/-----BEGIN\sCERTIFICATE\sREQUEST-----(.*)-----END\sCERTIFICATE\sREQUEST-----/is';
@@ -163,7 +127,7 @@ class CommonHelper
 	 * @param string $certificate
 	 * @return string
 	 */
-	public static function getCertificateWithoutComment($certificate)
+	public static function getCertificateWithoutComment(string $certificate)
 	{
 		//Setup
 		$pattern = '/-----BEGIN\sCERTIFICATE-----(.*)-----END\sCERTIFICATE-----/is';
@@ -180,7 +144,7 @@ class CommonHelper
 	 * @param string $certificateFromServer
 	 * @return array|null
 	 */
-	public static function extractCertificate($certificateFromServer)
+	public static function extractCertificate(string $certificateFromServer)
 	{
 		//Setup
 		$certificate = '';

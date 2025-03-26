@@ -81,7 +81,7 @@ class EndpointService
 		//Send the GET request, to make sure it is responding
 		$response = $client->request('GET', $acme2EndpointUrl);
 		//If acme2 endpoint is not responding, then throw an error
-		if($response instanceof \GuzzleHttp\Psr7\Response && $response->getStatusCode() != 200) {
+		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
 			//Throw the Exception error
 			throw new Exception("Get endpoint info failed, the url is: {$acme2EndpointUrl}");
 		}
@@ -90,7 +90,7 @@ class EndpointService
 			//Throw the Exception error
 			throw new Exception("The body from the get endpoint is not valid, the url is: {$acme2EndpointUrl}");
 		}
-		$body_data = json_decode($response->getBody()->__toString(), true);
+		$body_data = json_decode(trim($response->getBody()->__toString()), TRUE);
 		//Populate if property exists
 		foreach($body_data as $key => $value) {
 			//Check if the property_exists, then set the value
