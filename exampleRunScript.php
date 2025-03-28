@@ -8,7 +8,7 @@ use GuzzleHttp\Client as GuzzleHttpClient;
 class Run
 {
 	/**
-	 * Get standard ssl cert using http as verification method for site ownership
+	 * Get standard ssl cert using HTTP as verification method for site ownership
 	 * @param $sslDir:string ex: /var/www/ssl
 	 * @param $emailList:array ex: ['test@test.com']
 	 * @param $name:string ex: test
@@ -108,7 +108,7 @@ class Run
 	}
 
 	/**
-	 * Get standard ssl cert using http as verification method for site ownership
+	 * Get standard ssl cert using DNS as verification method for site ownership
 	 * @param $sslDir:string ex: /var/www/ssl
 	 * @param $emailList:array ex: ['test@test.com']
 	 * @param $name:string ex: test
