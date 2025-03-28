@@ -243,7 +243,14 @@ class OrderService
 		//Setup the GuzzleHttpClient
 		$client = new GuzzleHttpClient();
 		//Send the HEAD request and get the response
-		$response = $client->request('POST', $accountUrl, $jws);
+		$response = $client->request('POST', ClientRequest::$runRequest->endpoint->newOrder, [
+			'headers' => [
+				'Accept' => 'application/jose+json',
+				'Content-Type' => 'application/jose+json',
+				'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+			],
+			'body' => $jws
+		]);
 		//If acme2 endpoint is not responding, then throw an error
 		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 201) {
 			//Throw the Exception error
@@ -444,7 +451,14 @@ class OrderService
 		//Setup the GuzzleHttpClient
 		$client = new GuzzleHttpClient();
 		//Send the HEAD request and get the response
-		$response = $client->request('POST', ClientRequest::$runRequest->endpoint->revokeCert, $jws);
+		$response = $client->request('POST', ClientRequest::$runRequest->endpoint->revokeCert, [
+			'headers' => [
+				'Accept' => 'application/jose+json',
+				'Content-Type' => 'application/jose+json',
+				'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+			],
+			'body' => $jws
+		]);
 		//If acme2 endpoint is not responding, then throw an error
 		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
 			//Throw the Exception error
@@ -494,7 +508,14 @@ class OrderService
 		//Setup the GuzzleHttpClient
 		$client = new GuzzleHttpClient();
 		//Send the HEAD request and get the response
-		$response = $client->request('POST', $this->finalize, $jws);
+		$response = $client->request('POST', $this->finalize, [
+			'headers' => [
+				'Accept' => 'application/jose+json',
+				'Content-Type' => 'application/jose+json',
+				'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+			],
+			'body' => $jws
+		]);
 		//If acme2 endpoint is not responding, then throw an error
 		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
 			//Throw the Exception error

@@ -39,6 +39,12 @@ class RunRequest
 	public $staging;
 
 	/**
+	 * Config params
+	 * @var array
+	 */
+	public $params;
+
+	/**
 	 * Account service instance
 	 * @var \orangecam\acme2letsencrypt\acme2services\AccountService
 	 */
@@ -85,6 +91,13 @@ class RunRequest
 	 */
 	public function init()
 	{
+		//Set the parameters to this
+		$this->params = [
+			//Software name
+			'software' => 'orangecam-acme2letsencrypt',
+			//Version number
+			'version' => '1.0.0',
+		];
 		//Setup the endpoint service to make queries to the acme2 api
 		$this->endpoint = new EndpointService($this->staging);
 		//Setup the account service

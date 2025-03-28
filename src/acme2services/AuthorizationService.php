@@ -148,7 +148,14 @@ class AuthorizationService
 		//Setup the GuzzleHttpClient
 		$client = new GuzzleHttpClient();
 		//Send the GET request, to make sure it is responding
-		$response = $client->request('POST', $challenge['url'], $jwk);
+		$response = $client->request('POST', $challenge['url'], [
+			'headers' => [
+				'Accept' => 'application/jose+json',
+				'Content-Type' => 'application/jose+json',
+				'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+			],
+			'body' => $jwk
+		]);
 		//If acme2 endpoint is not responding, then throw an error
 		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
 			//Throw the Exception error

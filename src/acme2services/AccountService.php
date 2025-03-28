@@ -151,7 +151,14 @@ class AccountService
 		//Setup the GuzzleHttpClient
 		$client = new GuzzleHttpClient();
 		//Send the HEAD request and get the response
-		$response = $client->request('POST', ClientRequest::$runRequest->endpoint->newAccount, $jws);
+		$response = $client->request('POST', ClientRequest::$runRequest->endpoint->newAccount, [
+			'headers' => [
+				'Accept' => 'application/jose+json',
+				'Content-Type' => 'application/jose+json',
+				'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+			],
+			'body' => $jws
+		]);
 		//If acme2 endpoint is not responding, then throw an error
 		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 201) {
 			//Throw the Exception error
@@ -164,6 +171,8 @@ class AccountService
 			//Throw the Exception error
 			throw new \Exception("Parse account url failed, the header is: {".print_r($response->getHeaders(), true)."}");
 		}
+		//Get the body
+		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
 		//Merge the arrays
 		$accountInfo = array_merge($body, ['accountUrl' => $accountUrl]);
 		//Populate it in the class
@@ -190,7 +199,14 @@ class AccountService
 		//Setup the GuzzleHttpClient
 		$client = new GuzzleHttpClient();
 		//Send the HEAD request and get the response
-		$response = $client->request('POST', $accountUrl, $jws);
+		$response = $client->request('POST', $accountUrl, [
+			'headers' => [
+				'Accept' => 'application/jose+json',
+				'Content-Type' => 'application/jose+json',
+				'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+			],
+			'body' => $jws
+		]);
 		//If acme2 endpoint is not responding, then throw an error
 		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
 			//Throw the Exception error
@@ -224,7 +240,14 @@ class AccountService
 		//Setup the GuzzleHttpClient
 		$client = new GuzzleHttpClient();
 		//Send the HEAD request and get the response
-		$response = $client->request('POST', ClientRequest::$runRequest->endpoint->newAccount, $jws);
+		$response = $client->request('POST', ClientRequest::$runRequest->endpoint->newAccount, [
+			'headers' => [
+				'Accept' => 'application/jose+json',
+				'Content-Type' => 'application/jose+json',
+				'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+			],
+			'body' => $jws
+		]);
 		//If acme2 endpoint is not responding, then throw an error
 		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
 			//Throw the Exception error
@@ -269,7 +292,14 @@ class AccountService
 		//Setup the GuzzleHttpClient
 		$client = new GuzzleHttpClient();
 		//Send the HEAD request and get the response
-		$response = $client->request('POST', $accountUrl, $jws);
+		$response = $client->request('POST', $accountUrl, [
+			'headers' => [
+				'Accept' => 'application/jose+json',
+				'Content-Type' => 'application/jose+json',
+				'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+			],
+			'body' => $jws
+		]);
 		//If acme2 endpoint is not responding, then throw an error
 		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
 			//Throw the Exception error
@@ -318,7 +348,14 @@ class AccountService
 		//Setup the GuzzleHttpClient
 		$client = new GuzzleHttpClient();
 		//Send the HEAD request and get the response
-		$response = $client->request('POST', ClientRequest::$runRequest->endpoint->keyChange, $jws);
+		$response = $client->request('POST', ClientRequest::$runRequest->endpoint->keyChange, [
+			'headers' => [
+				'Accept' => 'application/jose+json',
+				'Content-Type' => 'application/jose+json',
+				'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+			],
+			'body' => $jws
+		]);
 		//If acme2 endpoint is not responding, then throw an error
 		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
 			//Throw the Exception error
@@ -350,7 +387,14 @@ class AccountService
 		//Setup the GuzzleHttpClient
 		$client = new GuzzleHttpClient();
 		//Send the HEAD request and get the response
-		$response = $client->request('POST', $this->getAccountUrl(), $jws);
+		$response = $client->request('POST', $this->getAccountUrl(), [
+			'headers' => [
+				'Accept' => 'application/jose+json',
+				'Content-Type' => 'application/jose+json',
+				'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+			],
+			'body' => $jws
+		]);
 		//If acme2 endpoint is not responding, then throw an error
 		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
 			//Throw the Exception error
