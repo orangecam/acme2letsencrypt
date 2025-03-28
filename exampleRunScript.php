@@ -13,6 +13,7 @@ class Run
 	 * @param $emailList:array ex: ['test@test.com']
 	 * @param $name:string ex: test
 	 * @param $topLevelDomain:string ex: com
+	 * @param $pathToWwwRoot:string ex: /var/www/hosts/
 	 * @param $renewCert:bool ex: FALSE
 	 * @param $useStagingUrl:bool ex: FALSE
 	 * @return void
@@ -21,12 +22,17 @@ class Run
 		string $sslDir,
 		array $emailList,
 		string $name,
-		string $pathToWwwRoot = '/var/www/hosts/',
 		string $topLevelDomain = 'com',
+		string $pathToWwwRoot = '/var/www/hosts/',
 		bool $renewCert = FALSE,
 		bool $useStagingUrl = FALSE
 	): void
 	{
+		//Check to make sure pathToWwwRoot has a / at the end
+		if(!str_ends_with($pathToWwwRoot, '/')) {
+			//Append / to the end if missing
+			$pathToWwwRoot .= '/';
+		}
 		//If not renewing the cert, then remove old files
 		if($renewCert == FALSE) {
 			if(!file_exists($sslDir.$name.'_'.$topLevelDomain)) {
@@ -113,6 +119,7 @@ class Run
 	 * @param $emailList:array ex: ['test@test.com']
 	 * @param $name:string ex: test
 	 * @param $topLevelDomain:string ex: com
+	 * @param $godaddyCredentials:array ex: ['key' => 'xxxxxxxx', 'secret' => 'xxxxxxxxx']
 	 * @param $renewCert:bool ex: FALSE
 	 * @param $useStagingUrl:bool ex: FALSE
 	 * @return void
@@ -298,4 +305,7 @@ $godaddyCredentials = [
 	'key' => '',
 	'secret' => '',
 ];
-(new Run())->__getWilcardSslCert_usingDns($sslDir, $name, $topLevelDomain, $godaddyCredentials, TRUE);
+//Example declaration
+$runClass = new Run();
+$runClass->__getStandardSslCert_usingHttp($sslDir, $emailList, $name, $topLevelDomain, '/var/www/hosts/', FALSE, FALSE);
+$runClass->__getWilcardSslCert_usingDns($sslDir, $emailList, $name, $topLevelDomain, $godaddyCredentials, FALSE, FALSE);
