@@ -34,7 +34,7 @@ class ChallengeService
 	 * Authorization inntance
 	 * @var \orangecam\acme2letsencrypt\acme2services\AuthorizationService
 	 */
-	private $_authorication;
+	private $_authorization;
 
 	/**
 	 * ChallengeService constructor.
@@ -44,7 +44,7 @@ class ChallengeService
 	public function __construct($type, $authorization)
 	{
 		$this->_type = $type;
-		$this->_authorication = $authorization;
+		$this->_authorization = $authorization;
 	}
 
 	/**
@@ -81,7 +81,7 @@ class ChallengeService
 	 * @return bool
 	 * @throws \Exception
 	 */
-	public function verify(int $verifyLocallyTimeout = 0, int $verifyCATimeout = 0)
+	public function verify(int $verifyLocallyTimeout = 0, int $verifyCATimeout = 0): bool
 	{
 		$orderService = ClientRequest::$runRequest->order;
 
@@ -89,6 +89,6 @@ class ChallengeService
 			return TRUE;
 		}
 
-		return $this->_authorication->verify($this->_type, $verifyLocallyTimeout, $verifyCATimeout);
+		return $this->_authorization->verify($this->_type, $verifyLocallyTimeout, $verifyCATimeout);
 	}
 }

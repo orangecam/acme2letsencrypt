@@ -111,12 +111,12 @@ class RunRequest
 	/**
 	 * Get order service instance
 	 * @param array $domainInfo
-	 * @param string $algorithm
+	 * @param int $algorithm
 	 * @param bool $generateNewOder
 	 * @return OrderService
 	 * @throws \Exception
 	 */
-	public function getOrder(array $domainInfo, string $algorithm, bool $generateNewOder = true)
+	public function getOrder(array $domainInfo, int $algorithm, bool $generateNewOder = true)
 	{
 		if(!$this->order) {
 			$this->order = new OrderService($domainInfo, $algorithm, $generateNewOder);

@@ -48,12 +48,12 @@ class ClientRequest
 	/**
 	 * Get order service instance
 	 * @param array $domainInfo
-	 * @param string $algorithm
+	 * @param int $algorithm
 	 * @param bool $generateNewOder
 	 * @return services\OrderService
 	 * @throws \Exception
 	 */
-	public function getOrder(array $domainInfo, string $algorithm, bool $generateNewOder = TRUE)
+	public function getOrder(array $domainInfo, int $algorithm, bool $generateNewOder = TRUE)
 	{
 		//Return the order being requested
 		return self::$runRequest->getOrder($domainInfo, $algorithm, $generateNewOder);

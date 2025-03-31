@@ -53,7 +53,7 @@ class Run
 		];
 		//Loop through for each order and execute
 		foreach($order_list as $order_number) {
-			$client = (new ClientRequest($emailList, $sslDir.$name.'_'.$topLevelDomain.'/', $useStagingUrl));
+			$client = (new ClientRequest($emailList, $sslDir.$name.'_'.$topLevelDomain, $useStagingUrl));
 			$account = $client->getAccount();
 			$domainInfo = [
 				CommonConstant::CHALLENGE_TYPE_HTTP => [
@@ -154,7 +154,7 @@ class Run
 		];
 		//Loop through for each order and execute
 		foreach($order_list as $order_number) {
-			$client = (new ClientRequest($emailList, $sslDir.$name.'_'.$topLevelDomain.'/', $useStagingUrl));
+			$client = (new ClientRequest($emailList, $sslDir.$name.'_'.$topLevelDomain, $useStagingUrl));
 			$account = $client->getAccount();
 			$domainInfo = [
 				ConstantVariables::CHALLENGE_TYPE_DNS => [
@@ -298,6 +298,7 @@ class Run
 }
 //Variables to use to get the SSL Certs
 $sslDir = '/var/www/ssl/';
+$hostsDir = '/var/www/hosts/';
 $emailList = ['test@test.com'];
 $name = 'test';
 $topLevelDomain = 'com';
@@ -307,5 +308,5 @@ $godaddyCredentials = [
 ];
 //Example declaration
 $runClass = new Run();
-$runClass->__getStandardSslCert_usingHttp($sslDir, $emailList, $name, $topLevelDomain, '/var/www/hosts/', FALSE, FALSE);
+$runClass->__getStandardSslCert_usingHttp($sslDir, $emailList, $name, $topLevelDomain, $hostsDir, FALSE, FALSE);
 $runClass->__getWilcardSslCert_usingDns($sslDir, $emailList, $name, $topLevelDomain, $godaddyCredentials, FALSE, FALSE);
