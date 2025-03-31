@@ -35,7 +35,7 @@ $name = 'example';
 // TLD here, for example 'com' ***not*** to include the '.' (dot)
 $topLevelDomain = 'com';
 // Using stage environment or not, make sure to empty $sslDir directory after you change from staging/test server to the real one
-$useStagingUrl = TRUE;
+$useStagingUrl = FALSE;
 // Initiating a client
 $client = new ClientRequest(
 	$emailList,
@@ -73,14 +73,15 @@ use orangecam\acme2letsencrypt\constants\ConstantVariables;
 $domainInfo = [
 	ConstantVariables::CHALLENGE_TYPE_HTTP => [
 		//WILDCARD certs not allowed on HTTP challenge type
-		'abc.example.com'
+		'example.com',
+		'www.example.com',
 	],
 ];
 //----------OR----------
 $domainInfo = [
 	ConstantVariables::CHALLENGE_TYPE_DNS => [
-		'*.example.com',
 		'example.com',
+		'*.example.com',
 	],
 ];
 // Generate RSA certificates, `ConstantVariables::KEY_PAIR_TYPE_EC` for ECDSA certificates
@@ -105,9 +106,12 @@ $challengeList = $order->getPendingChallengeList();
 foreach($challengeList as $challenge) {
 	//Get the credentials
 	$credential = $challenge->getCredential();
-	//****Push to the right place, where file on server, or DNS entry
-	//Infinite loop until the authorization status becomes valid
-	// or timeout has been reached
+	//Get the type
+	$type = $challenge->getType();
+
+	//****Push the $credentials to the right place. HTTP-01 or DNS-01
+
+	//Infinite loop until the authorization status becomes valid or timeout has been reached
 	$challenge->verify(700, 700);
 }
 // Get certificates, such as certificates path, private/public key pair path, valid time
@@ -132,19 +136,16 @@ In the following, we take `example.com` as an example.
 Let's Encrypt will access a specific file under web server to verify domain. The `$challenge` info is like bellow.
 
 ```php
-echo $challenge->getType();
-
+print_r($challenge->getType());
 /* output */
 'http-01'
 
-
 print_r($challenge->getCredential());
-
 /* output */
 [
-    'identifier' => 'example.com',
-    'fileName' => 'RzMY-HDa1P0DwZalmRyB7wLBNI8fb11LkxdXzNrhA1Y',
-    'fileContent' => 'RzMY-HDa1P0DwZalmRyB7wLBNI8fb11LkxdXzNrhA1Y.CNWZAGtAHIUpstBEckq9W_-0ZKxO-IbxF9Y8J_svbqo',
+	'identifier' => 'example.com',
+	'fileName' => 'RzMY-HDa1P0DwZalmRyB7wLBNI8fb11LkxdXzNrhA1Y',
+	'fileContent' => 'RzMY-HDa1P0DwZalmRyB7wLBNI8fb11LkxdXzNrhA1Y.CNWZAGtAHIUpstBEckq9W_-0ZKxO-IbxF9Y8J_svbqo',
 ];
 ```
 
@@ -155,18 +156,15 @@ You should add a DNS TXT record for domain, Let's Encrypt will check domain's sp
 As this time, the `$challenge` info is like bellow.
 
 ```php
-echo $challenge->getType();
-
+print_r($challenge->getType());
 /* output */
 'dns-01'
 
-
 print_r($challenge->getCredential());
-
 /* output */
 [
-    'identifier' => 'example.com',
-    'dnsContent' => 'xQwerUEsL8UVc6tIahwIVY4e8N5MAf1xhyY20AELurk',
+	'identifier' => 'example.com',
+	'dnsContent' => 'xQwerUEsL8UVc6tIahwIVY4e8N5MAf1xhyY20AELurk',
 ];
 ```
 
