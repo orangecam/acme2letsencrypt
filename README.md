@@ -168,7 +168,7 @@ print_r($challenge->getCredential());
 ];
 ```
 
-With the aboved `$challenge` info, you shuoud add a TXT record for domain `example.com`, the record name should be "_acme-challenge.example.com", the record value should be "xQwerUEsL8UVc6tIahwIVY4e8N5MAf1xhyY20AELurk".
+With the aboved `$challenge` info, you shoud add a TXT record for domain `example.com`, the record name should be "_acme-challenge.example.com", the record value should be "xQwerUEsL8UVc6tIahwIVY4e8N5MAf1xhyY20AELurk".
 It's worth noting that you should set TTL as short as possible to let the record take effect as soon as possible.
 
 #### 5.3. Wildcard domain verification
