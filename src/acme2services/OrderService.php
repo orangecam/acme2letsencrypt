@@ -658,7 +658,7 @@ class OrderService
 	}
 
 	/**
-	 * 等待订单状态
+	 * Wait until status changes
 	 * @param $staus
 	 * @throws \Exception
 	 */
