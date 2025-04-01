@@ -172,7 +172,12 @@ class AccountService
 			throw new \Exception("Parse account url failed, the header is: {".print_r($response->getHeaders(), true)."}");
 		}
 		//Get the body
-		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		try {
+			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+		}
+		catch(\JsonException $e) {
+			$body = trim($response->getBody()->__toString());
+		}
 		//Merge the arrays
 		$accountInfo = array_merge($body, ['accountUrl' => $accountUrl]);
 		//Populate it in the class
@@ -213,7 +218,12 @@ class AccountService
 			throw new \Exception("Get account info failed, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}, the body is: {".print_r($response->getBody()->__toString(), TRUE)."}");
 		}
 		//Get the body
-		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		try {
+			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+		}
+		catch(\JsonException $e) {
+			$body = trim($response->getBody()->__toString());
+		}
 		//Populate
 		$this->populate($body);
 		//Return
@@ -306,7 +316,12 @@ class AccountService
 			throw new \Exception("Update account contact info failed, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}, the body is: {".print_r($response->getBody()->__toString(), TRUE)."}");
 		}
 		//Get the body
-		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		try {
+			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+		}
+		catch(\JsonException $e) {
+			$body = trim($response->getBody()->__toString());
+		}
 		//Populate
 		$this->populate($body);
 		//Return
@@ -362,7 +377,12 @@ class AccountService
 			throw new \Exception("Update account key failed, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}, the body is: {".print_r($response->getBody()->__toString(), TRUE)."}");
 		}
 		//Get the body
-		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		try {
+			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+		}
+		catch(\JsonException $e) {
+			$body = trim($response->getBody()->__toString());
+		}
 		//Populate
 		$this->populate($body);
 		//KeyPair
@@ -401,7 +421,12 @@ class AccountService
 			throw new \Exception("Deactivate account failed, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}, the body is: {".print_r($response->getBody()->__toString(), TRUE)."}");
 		}
 		//Get the body
-		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		try {
+			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+		}
+		catch(\JsonException $e) {
+			$body = trim($response->getBody()->__toString());
+		}
 		//Populate
 		$this->populate($body);
 		//Remove the keys

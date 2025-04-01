@@ -19,7 +19,7 @@ class Run
 	 * @param $useStagingUrl:bool ex: FALSE
 	 * @return void
 	 */
-	private function getSslCert_usingHttp(
+	public function getSslCert_usingHttp(
 		string $sslDir = "",
 		array $emailList = [],
 		string $subDominanName = "",
@@ -49,15 +49,15 @@ class Run
 			$files = scandir($sslDir.$combinedDomainNameUnderscore);
 			$files = array_diff($files, array('.', '..'));
 			foreach($files as $index => $dir_name) {
-				if(is_dir($sslDir.$combinedDomainNameUnderscore.DS.$dir_name) && $dir_name != "account") {
-					$this->rmdirRecursive($sslDir.$combinedDomainNameUnderscore.DS.$dir_name);
+				if(is_dir($sslDir.$combinedDomainNameUnderscore.DIRECTORY_SEPARATOR.$dir_name) && $dir_name != "account") {
+					$this->rmdirRecursive($sslDir.$combinedDomainNameUnderscore.DIRECTORY_SEPARATOR.$dir_name);
 				}
 			}
 		}
 		//Get both the RSA and EC keys
 		$order_list = [
-			CommonConstant::KEY_PAIR_TYPE_RSA,
-			CommonConstant::KEY_PAIR_TYPE_EC
+			ConstantVariables::KEY_PAIR_TYPE_RSA,
+			ConstantVariables::KEY_PAIR_TYPE_EC
 		];
 		//Setup the domain_name to use
 		$combinedDomainNameDot = $baseDomainName.'.'.$TLD;
@@ -70,9 +70,9 @@ class Run
 			$client = new ClientRequest($emailList, $sslDir.$combinedDomainNameUnderscore, $useStagingUrl);
 			$account = $client->getAccount();
 			$domainInfo = [
-				CommonConstant::CHALLENGE_TYPE_HTTP => [
+				ConstantVariables::CHALLENGE_TYPE_HTTP => [
 					$combinedDomainNameDot,
-					'www.'.$combinedDomainNameDot
+					((empty($subDominanName)) ? 'www.'.$combinedDomainNameDot : ''),
 				],
 			];
 			$order = $client->getOrder($domainInfo, $order_number);
@@ -82,7 +82,7 @@ class Run
 				$this->rmdirRecursive($path);
 			}
 			//Make the path
-			mkdir($path.DS.'acme-challenge', 0777, true);
+			mkdir($path.DIRECTORY_SEPARATOR.'acme-challenge', 0777, true);
 			//Keep track if it failed
 			$failure_verify = false;
 			/* Verify authorizations */
@@ -92,7 +92,7 @@ class Run
 					//Get the credentials
 					$credential = $challenge->getCredential();
 					//Put the contents on the server
-					file_put_contents($path.DS.'acme-challenge'.DS.$credential['fileName'], $credential['fileContent']);
+					file_put_contents($path.DIRECTORY_SEPARATOR.'acme-challenge'.DIRECTORY_SEPARATOR.$credential['fileName'], $credential['fileContent']);
 					/* Infinite loop until the authorization status becomes valid or 700 seconds has passed */
 					$challenge->verify(700, 700);
 				}
@@ -164,15 +164,15 @@ class Run
 			$files = scandir($sslDir.$combinedDomainNameUnderscore);
 			$files = array_diff($files, array('.', '..'));
 			foreach($files as $index => $dir_name) {
-				if(is_dir($sslDir.$combinedDomainNameUnderscore.DS.$dir_name) && $dir_name != "account") {
-					$this->rmdirRecursive($sslDir.$combinedDomainNameUnderscore.DS.$dir_name);
+				if(is_dir($sslDir.$combinedDomainNameUnderscore.DIRECTORY_SEPARATOR.$dir_name) && $dir_name != "account") {
+					$this->rmdirRecursive($sslDir.$combinedDomainNameUnderscore.DIRECTORY_SEPARATOR.$dir_name);
 				}
 			}
 		}
 		//Get both the RSA and EC keys
 		$order_list = [
-			CommonConstant::KEY_PAIR_TYPE_RSA,
-			CommonConstant::KEY_PAIR_TYPE_EC
+			ConstantVariables::KEY_PAIR_TYPE_RSA,
+			ConstantVariables::KEY_PAIR_TYPE_EC
 		];
 		//Setup the domain_name to use
 		$combinedDomainNameDot = $baseDomainName.'.'.$TLD;
@@ -187,7 +187,7 @@ class Run
 			$domainInfo = [
 				ConstantVariables::CHALLENGE_TYPE_DNS => [
 					$combinedDomainNameDot,
-					'*.'.$combinedDomainNameDot
+					((empty($subDominanName)) ? '*.'.$combinedDomainNameDot : ''),
 				],
 			];
 			$order = $client->getOrder($domainInfo, $order_number);

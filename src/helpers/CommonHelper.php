@@ -48,10 +48,15 @@ class CommonHelper
 			//Throw the Exception error
 			throw new \Exception("Get url failed, the file is not reachable at: {$url}");
 		}
-		//Get the body data from the GET request
-		$body_data = $response->getBody()->__toString();
+		//Get the body
+		try {
+			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+		}
+		catch(\JsonException $e) {
+			$body = trim($response->getBody()->__toString());
+		}
 		//Check the body data against what is expected
-		if($body_data == $fileContent) {
+		if($body == $fileContent) {
 			//Success
 			return TRUE;
 		}

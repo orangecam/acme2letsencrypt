@@ -143,20 +143,24 @@ class OrderService
 		//Set the variables as they are passed in
 		$this->_algorithm = $algorithm;
 		$this->_generateNewOrder = boolval($generateNewOder);
-
+		//Domain info, either RSA or ECDSA type
 		foreach($domainInfo as $challengeType => $domainList) {
+			//Loop through all the domains that need to be applied for
 			foreach($domainList as $domain) {
+				//Skip if the domain is empty
+				if(empty($domain)) continue;
+				//Trim it, so no whitespace
 				$domain = trim($domain);
-
+				//Append to the list and challenge type
 				$this->_domainList[] = $domain;
 				$this->_domainChallengeTypeMap[$domain] = $challengeType;
 			}
 		}
-
+		//Make sure domainList is unique
 		$this->_domainList = array_unique($this->_domainList);
-
+		//Sort it to keep clean
 		sort($this->_domainList);
-
+		//Call init, to initialize things
 		$this->init();
 	}
 
@@ -264,7 +268,12 @@ class OrderService
 			throw new \Exception('Get order url failed during order creation, the domain list is: '.implode(', ', $this->_domainList));
 		}
 		//Get the body
-		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		try {
+			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+		}
+		catch(\JsonException $e) {
+			$body = trim($response->getBody()->__toString());
+		}
 		//Merge data
 		$orderInfo = array_merge($body, ['orderUrl' => $orderUrl]);
 		//Populate it
@@ -300,7 +309,12 @@ class OrderService
 			throw new \Exception("Get order info failed, the order url is: {$orderUrl}, the code is: {$response->getStatusCode()}, the header is: {".print_r($response->getHeaders(), true)."}, the body is: ".print_r($body, TRUE));
 		}
 		//Get the body
-		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		try {
+			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+		}
+		catch(\JsonException $e) {
+			$body = trim($response->getBody()->__toString());
+		}
 		//Populate
 		$this->populate(array_merge($body, ['orderUrl' => $orderUrl]));
 		//Check if authorization list is true
@@ -392,7 +406,12 @@ class OrderService
 			throw new \Exception("Fetch certificate from letsencrypt failed, the url is: {$this->certificate}, the domain list is: ".implode(', ', $this->_domainList).", the code is: {$response->getStatusCode()}, the header is: {".print_r($response->getHeaders(), true)."}, the body is: ".print_r($body, TRUE));
 		}
 		//Get the body
-		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		try {
+			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+		}
+		catch(\JsonException $e) {
+			$body = trim($response->getBody()->__toString());
+		}
 		//Cert map, body
 		$certificateMap = CommonHelper::extractCertificate($body);
 		//Put the contents in the folder
@@ -522,7 +541,12 @@ class OrderService
 			throw new \Exception("Finalize order failed, the url is: {$this->finalize}, the domain list is: ".implode(', ', $this->_domainList).", the code is: {$response->getStatusCode()}, the header is: {".print_r($response->getHeaders(), true)."}, the body is: ".print_r($body, TRUE));
 		}
 		//Get the body
-		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		try {
+			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+		}
+		catch(\JsonException $e) {
+			$body = trim($response->getBody()->__toString());
+		}
 		//Populate
 		$this->populate($body);
 		$this->getAuthorizationList();

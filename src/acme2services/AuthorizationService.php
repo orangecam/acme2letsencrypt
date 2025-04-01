@@ -94,7 +94,12 @@ class AuthorizationService
 			throw new \Exception("Get authorization info failed, the authorization url is: {$this->authorizationUrl}, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}, the body is: {".print_r($response->getBody()->__toString(), TRUE)."}");
 		}
 		//Get the body
-		$body = json_decode(trim($response->getBody()->__toString()), TRUE);
+		try {
+			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+		}
+		catch(\JsonException $e) {
+			$body = trim($response->getBody()->__toString());
+		}
 		//Populate
 		$this->populate($body);
 		//Return
