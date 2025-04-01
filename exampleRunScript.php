@@ -8,21 +8,23 @@ use GuzzleHttp\Client as GuzzleHttpClient;
 class Run
 {
 	/**
-	 * Get standard ssl cert using HTTP as verification method for site ownership
+	 * Get ssl cert using HTTP-01 as verification method for site ownership
 	 * @param $sslDir:string ex: /var/www/ssl
 	 * @param $emailList:array ex: ['test@test.com']
-	 * @param $name:string ex: test
-	 * @param $topLevelDomain:string ex: com
+	 * @param $subDominanName:string ex: dev
+	 * @param $baseDomainName:string ex: test
+	 * @param $TLD:string ex: com
 	 * @param $pathToWwwRoot:string ex: /var/www/hosts/
 	 * @param $renewCert:bool ex: FALSE
 	 * @param $useStagingUrl:bool ex: FALSE
 	 * @return void
 	 */
-	private function __getStandardSslCert_usingHttp(
-		string $sslDir,
-		array $emailList,
-		string $name,
-		string $topLevelDomain = 'com',
+	private function getSslCert_usingHttp(
+		string $sslDir = "",
+		array $emailList = [],
+		string $subDominanName = "",
+		string $baseDomainName = "",
+		string $TLD = 'com',
 		string $pathToWwwRoot = '/var/www/hosts/',
 		bool $renewCert = FALSE,
 		bool $useStagingUrl = FALSE
@@ -33,16 +35,22 @@ class Run
 			//Append / to the end if missing
 			$pathToWwwRoot .= '/';
 		}
+		//Setup the domain_name to use
+		$combinedDomainNameUnderscore = $baseDomainName.'_'.$TLD;
+		//If $subDommainName is not empty, then reset the combinedDomainNameUnderscore
+		if(!empty($subDominanName)) {
+			$combinedDomainNameUnderscore = $subDominanName.'_'.$baseDomainName.'_'.$TLD;
+		}
 		//If not renewing the cert, then remove old files
 		if($renewCert == FALSE) {
-			if(!file_exists($sslDir.$name.'_'.$topLevelDomain)) {
-				mkdir($sslDir.$name.'_'.$topLevelDomain, 0755, false);
+			if(!file_exists($sslDir.$combinedDomainNameUnderscore)) {
+				mkdir($sslDir.$combinedDomainNameUnderscore, 0755, false);
 			}
-			$files = scandir($sslDir.$name.'_'.$topLevelDomain);
+			$files = scandir($sslDir.$combinedDomainNameUnderscore);
 			$files = array_diff($files, array('.', '..'));
 			foreach($files as $index => $dir_name) {
-				if(is_dir($sslDir.$name.'_'.$topLevelDomain.DS.$dir_name) && $dir_name != "account") {
-					$this->rmdirRecursive($sslDir.$name.'_'.$topLevelDomain.DS.$dir_name);
+				if(is_dir($sslDir.$combinedDomainNameUnderscore.DS.$dir_name) && $dir_name != "account") {
+					$this->rmdirRecursive($sslDir.$combinedDomainNameUnderscore.DS.$dir_name);
 				}
 			}
 		}
@@ -51,19 +59,25 @@ class Run
 			CommonConstant::KEY_PAIR_TYPE_RSA,
 			CommonConstant::KEY_PAIR_TYPE_EC
 		];
+		//Setup the domain_name to use
+		$combinedDomainNameDot = $baseDomainName.'.'.$TLD;
+		//If $subDommainName is not empty, then reset the combinedDomainNameDot
+		if(!empty($subDominanName)) {
+			$combinedDomainNameDot = $subDominanName.'.'.$baseDomainName.'.'.$TLD;
+		}
 		//Loop through for each order and execute
 		foreach($order_list as $order_number) {
-			$client = (new ClientRequest($emailList, $sslDir.$name.'_'.$topLevelDomain, $useStagingUrl));
+			$client = new ClientRequest($emailList, $sslDir.$combinedDomainNameUnderscore, $useStagingUrl);
 			$account = $client->getAccount();
 			$domainInfo = [
 				CommonConstant::CHALLENGE_TYPE_HTTP => [
-					$name.'.'.$topLevelDomain,
-					'www.'.$name.'.'.$topLevelDomain
+					$combinedDomainNameDot,
+					'www.'.$combinedDomainNameDot
 				],
 			];
 			$order = $client->getOrder($domainInfo, $order_number);
 			$challengeList = $order->getPendingChallengeList();
-			$path = $pathToWwwRoot.$name.'.'.$topLevelDomain.'/.well-known';
+			$path = $pathToWwwRoot.$combinedDomainNameDot.'/.well-known';
 			if(file_exists($path)) {
 				$this->rmdirRecursive($path);
 			}
@@ -99,10 +113,10 @@ class Run
 				$certificate = file_get_contents($certificateInfo['certificate']);
 				$certificateFullChained = file_get_contents($certificateInfo['certificateFullChained']);
 				//Set the basename
-				$base_name = $sslDir.$name.'_'.$topLevelDomain.'/'.$name.'_'.$topLevelDomain;
+				$base_name = $sslDir.$combinedDomainNameUnderscore.'/'.$combinedDomainNameUnderscore;
 				//If order is KEY_PAIR_TYPE_EC, then append _ecc to the filename to differentie it
 				if($order_number == ConstantVariables::KEY_PAIR_TYPE_EC) {
-					$base_name = $sslDir.$name.'_'.$topLevelDomain.'/'.$name.'_'.$topLevelDomain.'_ecc';
+					$base_name = $sslDir.$combinedDomainNameUnderscore.'/'.$combinedDomainNameUnderscore.'_ecc';
 				}
 				//Put on the server
 				file_put_contents($base_name.'.key', $private_key);
@@ -114,36 +128,44 @@ class Run
 	}
 
 	/**
-	 * Get standard ssl cert using DNS as verification method for site ownership
+	 * Get ssl cert using DNS-01 as verification method for site ownership
 	 * @param $sslDir:string ex: /var/www/ssl
 	 * @param $emailList:array ex: ['test@test.com']
-	 * @param $name:string ex: test
-	 * @param $topLevelDomain:string ex: com
+	 * @param $subDominanName:string ex: test
+	 * @param $baseDomainName:string ex: test
+	 * @param $TLD:string ex: com
 	 * @param $godaddyCredentials:array ex: ['key' => 'xxxxxxxx', 'secret' => 'xxxxxxxxx']
 	 * @param $renewCert:bool ex: FALSE
 	 * @param $useStagingUrl:bool ex: FALSE
 	 * @return void
 	 */
-	public function __getWilcardSslCert_usingDns(
-		string $sslDir,
-		array $emailList,
-		string $name,
-		string $topLevelDomain = 'com',
+	public function getSslCert_usingDns(
+		string $sslDir = "",
+		array $emailList = [],
+		string $subDominanName = "",
+		string $baseDomainName = "",
+		string $TLD = 'com',
 		array $godaddyCredentials = [],
 		bool $renewCert = FALSE,
 		bool $useStagingUrl = FALSE
 	): void
 	{
+		//Setup the domain_name to use
+		$combinedDomainNameUnderscore = $baseDomainName.'_'.$TLD;
+		//If $subDommainName is not empty, then reset the combinedDomainNameUnderscore
+		if(!empty($subDominanName)) {
+			$combinedDomainNameUnderscore = $subDominanName.'_'.$baseDomainName.'_'.$TLD;
+		}
 		//If not renewing the cert, then remove old files
 		if($renewCert == FALSE) {
-			if(!file_exists($sslDir.$name.'_'.$topLevelDomain)) {
-				mkdir($sslDir.$name.'_'.$topLevelDomain, 0755, false);
+			if(!file_exists($sslDir.$combinedDomainNameUnderscore)) {
+				mkdir($sslDir.$combinedDomainNameUnderscore, 0755, false);
 			}
-			$files = scandir($sslDir.$name.'_'.$topLevelDomain);
+			$files = scandir($sslDir.$combinedDomainNameUnderscore);
 			$files = array_diff($files, array('.', '..'));
 			foreach($files as $index => $dir_name) {
-				if(is_dir($sslDir.$name.'_'.$topLevelDomain.DS.$dir_name) && $dir_name != "account") {
-					$this->rmdirRecursive($sslDir.$name.'_'.$topLevelDomain.DS.$dir_name);
+				if(is_dir($sslDir.$combinedDomainNameUnderscore.DS.$dir_name) && $dir_name != "account") {
+					$this->rmdirRecursive($sslDir.$combinedDomainNameUnderscore.DS.$dir_name);
 				}
 			}
 		}
@@ -152,14 +174,20 @@ class Run
 			CommonConstant::KEY_PAIR_TYPE_RSA,
 			CommonConstant::KEY_PAIR_TYPE_EC
 		];
+		//Setup the domain_name to use
+		$combinedDomainNameDot = $baseDomainName.'.'.$TLD;
+		//If $subDommainName is not empty, then reset the combinedDomainNameDot
+		if(!empty($subDominanName)) {
+			$combinedDomainNameDot = $subDominanName.'.'.$baseDomainName.'.'.$TLD;
+		}
 		//Loop through for each order and execute
 		foreach($order_list as $order_number) {
-			$client = (new ClientRequest($emailList, $sslDir.$name.'_'.$topLevelDomain, $useStagingUrl));
+			$client = new ClientRequest($emailList, $sslDir.$combinedDomainNameUnderscore, $useStagingUrl);
 			$account = $client->getAccount();
 			$domainInfo = [
 				ConstantVariables::CHALLENGE_TYPE_DNS => [
-					$name.'.'.$topLevelDomain,
-					'*.'.$name.'.'.$topLevelDomain
+					$combinedDomainNameDot,
+					'*.'.$combinedDomainNameDot
 				],
 			];
 			$order = $client->getOrder($domainInfo, $order_number);
@@ -173,7 +201,7 @@ class Run
 					//Get the credentials to push to DNS server
 					$credential = $challenge->getCredential();
 					//Put the contents up to the dns records
-					$this->pushNewDnsRecord($name.'.'.$topLevelDomain, $credential, $godaddyCredentials);
+					$this->pushNewDnsRecord($combinedDomainNameDot, $credential, $godaddyCredentials);
 					/* Infinite loop until the authorization status becomes valid or 700 seconds has passed */
 					$challenge->verify(700, 700);
 				}
@@ -182,7 +210,7 @@ class Run
 				}
 			}
 			//Delete the DNS records
-			$this->deleteDnsRecord($name.'.'.$topLevelDomain, $godaddyCredentials);
+			$this->deleteDnsRecord($combinedDomainNameDot, $godaddyCredentials);
 			//If verified, then get the certificates
 			if(!$failure_verify) {
 				//Retrieve certs
@@ -193,10 +221,10 @@ class Run
 				$certificate = file_get_contents($certificateInfo['certificate']);
 				$certificateFullChained = file_get_contents($certificateInfo['certificateFullChained']);
 				//Set the basename
-				$base_name = $sslDir.$name.'_'.$topLevelDomain.'/'.$name.'_'.$topLevelDomain;
+				$base_name = $sslDir.$combinedDomainNameUnderscore.'/'.$combinedDomainNameUnderscore;
 				//If order is KEY_PAIR_TYPE_EC, then append _ecc to the filename to differentie it
 				if($order_number == ConstantVariables::KEY_PAIR_TYPE_EC) {
-					$base_name = $sslDir.$name.'_'.$topLevelDomain.'/'.$name.'_'.$topLevelDomain.'_ecc';
+					$base_name = $sslDir.$combinedDomainNameUnderscore.'/'.$combinedDomainNameUnderscore.'_ecc';
 				}
 				//Put on the server
 				file_put_contents($base_name.'.key', $private_key);
@@ -299,14 +327,15 @@ class Run
 //Variables to use to get the SSL Certs
 $sslDir = '/var/www/ssl/';
 $hostsDir = '/var/www/hosts/';
-$emailList = ['test@test.com'];
-$name = 'test';
-$topLevelDomain = 'com';
+$emailList = ['example@example.com'];
+$subdominanName = 'dev';
+$baseDomainName = 'example';
+$TLD = 'com';
 $godaddyCredentials = [
 	'key' => '',
 	'secret' => '',
 ];
 //Example declaration
 $runClass = new Run();
-$runClass->__getStandardSslCert_usingHttp($sslDir, $emailList, $name, $topLevelDomain, $hostsDir, FALSE, FALSE);
-$runClass->__getWilcardSslCert_usingDns($sslDir, $emailList, $name, $topLevelDomain, $godaddyCredentials, FALSE, FALSE);
+$runClass->getSslCert_usingHttp($sslDir, $emailList, $subdominanName, $baseDomainName, $TLD, $hostsDir, FALSE, TRUE);
+$runClass->getSslCert_usingDns($sslDir, $emailList, $subdominanName, $baseDomainName, $TLD, $godaddyCredentials, FALSE, TRUE);
