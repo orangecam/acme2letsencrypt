@@ -204,13 +204,13 @@ class Run
 					$this->pushNewDnsRecord($combinedDomainNameDot, $credential, $godaddyCredentials);
 					/* Infinite loop until the authorization status becomes valid or 700 seconds has passed */
 					$challenge->verify(700, 700);
+					//Delete the DNS records
+					$this->deleteDnsRecord($combinedDomainNameDot, $godaddyCredentials);
 				}
 				catch(\Exception $e) {
 					$failure_verify = true;
 				}
 			}
-			//Delete the DNS records
-			$this->deleteDnsRecord($combinedDomainNameDot, $godaddyCredentials);
 			//If verified, then get the certificates
 			if(!$failure_verify) {
 				//Retrieve certs
