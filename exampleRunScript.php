@@ -339,5 +339,23 @@ $renewCert = FALSE;
 $useStagingUrl = FALSE;
 //Example declaration
 $runClass = new Run();
-$runClass->getSslCert_usingHttp($sslDir, $emailList, $subdominanName, $baseDomainName, $TLD, $hostsDir, $renewCert, $useStagingUrl);
-$runClass->getSslCert_usingDns($sslDir, $emailList, $subdominanName, $baseDomainName, $TLD, $godaddyCredentials, $renewCert, $useStagingUrl);
+$runClass->getSslCert_usingHttp(
+	sslDir: $sslDir,
+	emaiList: $emailList,
+	subdominanName: $subdominanName,
+	baseDomainName: $baseDomainName,
+	TLD: $TLD,
+	hostsDir: $hostsDir,
+	renewCert: $renewCert,
+	useStagingUrl: $useStagingUrl
+);
+$runClass->getSslCert_usingDns(
+	sslDir: $sslDir,
+	emailList: $emailList,
+	subdominanName: $subdominanName,
+	baseDomainName: $baseDomainName,
+	TLD: $TLD,
+	godaddyCredentials: $godaddyCredentials,
+	renewCert: $renewCert,
+	useStagingUrl: $useStagingUrl
+);
