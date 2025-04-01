@@ -3,6 +3,13 @@
 	"version": "1.0.0",
 	"description": "A PHP client for acme protocal (version 2) implementation, used to get letsencrypt's ssl certificates.",
 	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Cameron Brown",
+			"email": "orangecam@users.noreply.github.com"
+		}
+	],
 	"autoload": {
 		"psr-4": {
 			"orangecam\\acme2letsencrypt\\": "src/"
