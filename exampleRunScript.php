@@ -335,7 +335,9 @@ $godaddyCredentials = [
 	'key' => '',
 	'secret' => '',
 ];
+$renewCert = FALSE;
+$useStagingUrl = FALSE;
 //Example declaration
 $runClass = new Run();
-$runClass->getSslCert_usingHttp($sslDir, $emailList, $subdominanName, $baseDomainName, $TLD, $hostsDir, FALSE, TRUE);
-$runClass->getSslCert_usingDns($sslDir, $emailList, $subdominanName, $baseDomainName, $TLD, $godaddyCredentials, FALSE, TRUE);
+$runClass->getSslCert_usingHttp($sslDir, $emailList, $subdominanName, $baseDomainName, $TLD, $hostsDir, $renewCert, $useStagingUrl);
+$runClass->getSslCert_usingDns($sslDir, $emailList, $subdominanName, $baseDomainName, $TLD, $godaddyCredentials, $renewCert, $useStagingUrl);
