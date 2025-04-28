@@ -35,7 +35,7 @@ class OpenSSLHelper
 
 			ConstantVariables::KEY_PAIR_TYPE_EC => [
 				'private_key_type' => OPENSSL_KEYTYPE_EC,
-				'curve_name' => 'secp256r1',
+				'curve_name' => 'prime256v1',
 			],
 		];
 
