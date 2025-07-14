@@ -155,6 +155,19 @@ class OpenSSLHelper
 		$privateKey = openssl_pkey_get_private($privateKey ?: ClientRequest::$runRequest->account->getPrivateKey());
 		$detail = openssl_pkey_get_details($privateKey);
 
+		$nonce = null;
+		while(true) {
+			try {
+				$get_nonce = ClientRequest::$runRequest->nonce->getNewNonce();
+				$nonce = $get_nonce;
+				break;
+			}
+			catch (\Exception $e) {
+				//try again in 1 minute
+				sleep(60);
+			}
+		}
+
 		$protected = [
 			'alg' => 'RS256',
 			'jwk' => [
@@ -162,7 +175,7 @@ class OpenSSLHelper
 				'n' => CommonHelper::base64UrlSafeEncode($detail['rsa']['n']),
 				'e' => CommonHelper::base64UrlSafeEncode($detail['rsa']['e']),
 			],
-			'nonce' => ClientRequest::$runRequest->nonce->getNewNonce(),
+			'nonce' => $nonce,
 			'url' => $url,
 		];
 
@@ -191,10 +204,23 @@ class OpenSSLHelper
 	{
 		$privateKey = openssl_pkey_get_private(ClientRequest::$runRequest->account->getPrivateKey());
 
+		$nonce = null;
+		while(true) {
+			try {
+				$get_nonce = ClientRequest::$runRequest->nonce->getNewNonce();
+				$nonce = $get_nonce;
+				break;
+			}
+			catch (\Exception $e) {
+				//Try again in 1 minute
+				sleep(60);
+			}
+		}
+
 		$protected = [
 			'alg' => 'RS256',
 			'kid' => $kid,
-			'nonce' => ClientRequest::$runRequest->nonce->getNewNonce(),
+			'nonce' => $nonce,
 			'url' => $url,
 		];
 
