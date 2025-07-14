@@ -268,7 +268,7 @@ class AccountService
 		//If header does not exist, then throw an error
 		if(empty($accountUrl)) {
 			//Throw the Exception error
-			throw new \Exception("The header doesn't contain `Location`, the url is: {$newNonceUrl}");
+			throw new \Exception("The header doesn't contain `Location`, the url is missing.");
 		}
 		//Save the accountUrl
 		$this->accountUrl = $accountUrl;

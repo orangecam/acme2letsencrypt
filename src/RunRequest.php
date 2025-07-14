@@ -96,7 +96,7 @@ class RunRequest
 			//Software name
 			'software' => 'orangecam-acme2letsencrypt',
 			//Version number
-			'version' => '1.0.2',
+			'version' => '1.0.3',
 		];
 		//Setup the endpoint service to make queries to the acme2 api
 		$this->endpoint = new EndpointService($this->staging);
