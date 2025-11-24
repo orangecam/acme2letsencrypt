@@ -72,7 +72,7 @@ class CommonHelper
 	 */
 	public static function checkDNSChallenge(string $domain, string $dnsContent)
 	{
-		//Setup
+		//Setup host string for query
 		$host = '_acme-challenge.'.str_replace('*.', '', $domain);
 		$recordList = @dns_get_record($host, DNS_TXT);
 		//Check DNS record exists and is valid
@@ -84,8 +84,54 @@ class CommonHelper
 				}
 			}
 		}
+		//Check if dig support on OS and try that way if dns_get_record is not working
+		if(self::is_dig_supported()) {
+			//Construct the dig command to get A records
+			$command = "dig @8.8.8.8 +noall +answer " . $host . " TXT";
+			//Array to store the output lines
+			$output = [];
+			//Variable to store the return status
+			$return_status = 0;
+			//Execute the command
+			exec($command, $output, $return_status);
+			//Check if the command executed successfully
+			if($return_status === 0 && isset($output[0]) && !empty($output[0])) {
+				//Get first one
+				$output = current($output);
+				//Explode by whitespace
+				$output_exploded = explode(" ", $output);
+				//Check if count is greater than 2
+				if(is_array($output_exploded) && count($output_exploded) > 2) {
+					//Get the last two elements
+					$lastTwoElements = array_slice($output_exploded, -2);
+					//Trim the post_data of whitespace
+					array_walk_recursive($lastTwoElements,function(&$arrValue,$arrKey){$arrValue=str_replace('"','',trim($arrValue));});
+					//Check if [3] is txt and [4] == $dnsContent
+					if(isset($lastTwoElements[0]) && $lastTwoElements[0] == "TXT" && isset($lastTwoElements[1]) && $lastTwoElements[1] == $dnsContent) {
+						//Success
+						return TRUE;
+					}
+				}
+			}
+		}
 		//Failure
 		return FALSE;
+	}
+
+	/**
+	 * Get common name for csr generation
+	 * @param array $domainList
+	 * @return mixed
+	 */
+	public static function is_dig_supported()
+	{
+	    //Attempt to run a simple 'dig -v' command and capture the return status
+	    exec('dig -v', $output, $return_var);
+	    //If the return status is 0, the command is available and ran successfully
+	    if($return_var === 0) {
+	        return true;
+	    }
+	    return false;
 	}
 
 	/**
