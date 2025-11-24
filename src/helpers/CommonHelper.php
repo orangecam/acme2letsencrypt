@@ -84,10 +84,10 @@ class CommonHelper
 				}
 			}
 		}
-		//Check if dig support on OS and try that way if dns_get_record is not working
+		//Check if dig supported on OS and try that way if dns_get_record is not working
 		if(self::is_dig_supported()) {
 			//Construct the dig command to get A records
-			$command = "dig @8.8.8.8 +noall +answer " . $host . " TXT";
+			$command = "dig @8.8.8.8 +noall +answer " . $host . " TXT 2>&1";
 			//Array to store the output lines
 			$output = [];
 			//Variable to store the return status
@@ -125,13 +125,13 @@ class CommonHelper
 	 */
 	public static function is_dig_supported()
 	{
-	    //Attempt to run a simple 'dig -v' command and capture the return status
-	    exec('dig -v', $output, $return_var);
-	    //If the return status is 0, the command is available and ran successfully
-	    if($return_var === 0) {
-	        return true;
-	    }
-	    return false;
+		//Attempt to run a simple 'dig -v' command and capture the return status
+		exec('dig -v 2>&1', $output, $return_var);
+		//If the return status is 0, the command is available and ran successfully
+		if($return_var === 0) {
+			return true;
+		}
+		return false;
 	}
 
 	/**
