@@ -198,7 +198,8 @@ class AuthorizationService
 					break;
 				}
 			}
-			else {
+
+			if($type == ConstantVariables::CHALLENGE_TYPE_DNS) {
 				$dnsContent = CommonHelper::base64UrlSafeEncode(hash('sha256', $keyAuthorization, TRUE));
 
 				if(CommonHelper::checkDNSChallenge($domain, $dnsContent) === TRUE) {
@@ -220,6 +221,11 @@ class AuthorizationService
 	{
 		//Verify start time
 		$verifyStartTime = time();
+		//Wait for global propagation even if local check passed
+		if($type == ConstantVariables::CHALLENGE_TYPE_DNS) {
+			//60 seconds is recommended for secondary validation
+			sleep(60);
+		}
 		//Loop until conditions
 		while($this->status == 'pending') {
 			if($verifyCATimeout > 0 && (time() - $verifyStartTime) > $verifyCATimeout) {

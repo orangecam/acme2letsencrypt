@@ -6,7 +6,7 @@ A PHP client for acme protocal (version 2) implementation, used to get let's enc
 
 ## 1. Current Version
 
-The current version is `1.0.5`.
+The current version is `1.0.6`.
 
 ## 2. Prerequisites
 
