@@ -40,28 +40,29 @@ class CommonHelper
 		//Setup the URL for use in the function
 		$url = "http://{$domain}/.well-known/acme-challenge/{$fileName}";
 		//Setup the GuzzleHttpClient
-		$client = new GuzzleHttpClient();
-		//Send the HEAD request and get the response
-		$response = $client->request('GET', $url);
-		//If acme2 endpoint is not responding, then throw an error
-		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
-			//Throw the Exception error
-			throw new \Exception("Get url failed, the file is not reachable at: {$url}");
-		}
-		//Get the body
+		$client = new GuzzleHttpClient(['timeout' => 10, 'verify' => false]);
+		//try catch block
 		try {
-			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+			//Send the GET request and get the response
+			$response = $client->request('GET', $url);
+			//If acme2 endpoint is not responding, then throw an error
+			if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() !== 200) {
+				return false;
+			}
+			//Get the body
+			$body = trim((string)$response->getBody());
+			//Handle case where server returns JSON or plain text
+			if(strpos($body, '{') === 0) {
+				$decoded = json_decode($body, true);
+				$body = is_array($decoded) ? ($decoded['content'] ?? $body) : $body;
+			}
+			//Return the body data against what is expected
+			return $body === $fileContent;
 		}
-		catch(\JsonException $e) {
-			$body = trim($response->getBody()->__toString());
+		catch(\Exception $e) {
+			// Log or handle: Connection refused, DNS failure, etc.
+			return false;
 		}
-		//Check the body data against what is expected
-		if($body == $fileContent) {
-			//Success
-			return TRUE;
-		}
-		//Failure
-		return FALSE;
 	}
 
 	/**
@@ -73,49 +74,37 @@ class CommonHelper
 	public static function checkDNSChallenge(string $domain, string $dnsContent)
 	{
 		//Setup host string for query
-		$host = '_acme-challenge.'.str_replace('*.', '', $domain);
+		$host = '_acme-challenge.' . ltrim($domain, '*.');
+		//Try PHP internal check
 		$recordList = @dns_get_record($host, DNS_TXT);
-		//Check DNS record exists and is valid
 		if(is_array($recordList)) {
 			foreach($recordList as $record) {
-				if($record['type'] == 'TXT' && $record['txt'] == $dnsContent) {
+				if(trim($record['txt'] ?? '', '" ') === $dnsContent) {
 					//Success
-					return TRUE;
+					return true;
 				}
 			}
 		}
-		//Check if dig supported on OS and try that way if dns_get_record is not working
+		//Try Dig against Authoritative Nameservers (Bypasses Cache)
 		if(self::is_dig_supported()) {
-			//Construct the dig command to get A records
-			$command = "dig @8.8.8.8 +noall +answer " . $host . " TXT 2>&1";
-			//Array to store the output lines
-			$output = [];
-			//Variable to store the return status
-			$return_status = 0;
-			//Execute the command
+			//Attempt to find the authoritative NS for the domain
+			$nsRecords = @dns_get_record($domain, DNS_NS);
+			$targetNs = !empty($nsRecords) ? "@" . $nsRecords[0]['target'] : "@8.8.8.8";
+			//Use +short to get clean output
+			$command = sprintf("dig %s %s TXT +short 2>&1", escapeshellarg($targetNs), escapeshellarg($host));
 			exec($command, $output, $return_status);
-			//Check if the command executed successfully
-			if($return_status === 0 && isset($output[0]) && !empty($output[0])) {
-				//Get first one
-				$output = current($output);
-				//Explode by whitespace
-				$output_exploded = explode(" ", $output);
-				//Check if count is greater than 2
-				if(is_array($output_exploded) && count($output_exploded) > 2) {
-					//Get the last two elements
-					$lastTwoElements = array_slice($output_exploded, -2);
-					//Trim the post_data of whitespace
-					array_walk_recursive($lastTwoElements,function(&$arrValue,$arrKey){$arrValue=str_replace('"','',trim($arrValue));});
-					//Check if [3] is txt and [4] == $dnsContent
-					if(isset($lastTwoElements[0]) && $lastTwoElements[0] == "TXT" && isset($lastTwoElements[1]) && $lastTwoElements[1] == $dnsContent) {
+			//Check output is what is expected
+			if($return_status === 0 && !empty($output)) {
+				foreach($output as $line) {
+					if(trim($line, '" ') === $dnsContent) {
 						//Success
-						return TRUE;
+						return true;
 					}
 				}
 			}
 		}
 		//Failure
-		return FALSE;
+		return false;
 	}
 
 	/**
@@ -125,13 +114,8 @@ class CommonHelper
 	 */
 	public static function is_dig_supported()
 	{
-		//Attempt to run a simple 'dig -v' command and capture the return status
 		exec('dig -v 2>&1', $output, $return_var);
-		//If the return status is 0, the command is available and ran successfully
-		if($return_var === 0) {
-			return true;
-		}
-		return false;
+		return $return_var === 0;
 	}
 
 	/**
@@ -142,18 +126,14 @@ class CommonHelper
 	public static function getCommonNameForCSR(array $domainList)
 	{
 		$domainLevel = [];
-
 		foreach($domainList as $domain) {
-			$domainLevel[count(explode('.', $domain))][] = $domain;
+			$cleanDomain = ltrim($domain, '*.');
+			$domainLevel[count(explode('.', $cleanDomain))][] = $cleanDomain;
 		}
-
 		ksort($domainLevel);
-
-		$shortestDomainList = reset($domainLevel);
-
-		sort($shortestDomainList);
-
-		return $shortestDomainList[0];
+		$shortestList = reset($domainLevel);
+		sort($shortestList);
+		return $shortestList[0];
 	}
 
 	/**
@@ -163,14 +143,7 @@ class CommonHelper
 	 */
 	public static function getCSRWithoutComment(string $csr)
 	{
-		//Setup
-		$pattern = '/-----BEGIN\sCERTIFICATE\sREQUEST-----(.*)-----END\sCERTIFICATE\sREQUEST-----/is';
-		//Check it
-		if(preg_match($pattern, $csr, $matches)) {
-			return trim($matches[1]);
-		}
-		//return
-		return $csr;
+		return trim(preg_replace('/-----(?:BEGIN|END)\sCERTIFICATE\sREQUEST-----/i', '', $csr));
 	}
 
 	/**
@@ -180,14 +153,7 @@ class CommonHelper
 	 */
 	public static function getCertificateWithoutComment(string $certificate)
 	{
-		//Setup
-		$pattern = '/-----BEGIN\sCERTIFICATE-----(.*)-----END\sCERTIFICATE-----/is';
-		//Check it
-		if(preg_match($pattern, $certificate, $matches)) {
-			return trim($matches[1]);
-		}
-		//return
-		return $certificate;
+		return trim(preg_replace('/-----(?:BEGIN|END)\sCERTIFICATE-----/i', '', $certificate));
 	}
 
 	/**
@@ -197,22 +163,13 @@ class CommonHelper
 	 */
 	public static function extractCertificate(string $certificateFromServer)
 	{
-		//Setup
-		$certificate = '';
-		$certificateFullChained = '';
 		$pattern = '/-----BEGIN\sCERTIFICATE-----(.*?)-----END\sCERTIFICATE-----/is';
-		//If valid and matches, then output the certificates
 		if(preg_match_all($pattern, $certificateFromServer, $matches)) {
-			$certificate = trim($matches[0][0]);
-			foreach($matches[0] as $match) {
-				$certificateFullChained .= trim($match)."\n";
-			}
 			return [
-				'certificate' => $certificate,
-				'certificateFullChained' => trim($certificateFullChained),
+				'certificate' => trim($matches[0][0]),
+				'certificateFullChained' => implode("\n", array_map('trim', $matches[0])),
 			];
 		}
-		//Failure
-		return NULL;
+		return null;
 	}
 }

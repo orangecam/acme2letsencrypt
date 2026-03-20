@@ -183,31 +183,46 @@ class AuthorizationService
 	{
 		//Verify start time
 		$verifyStartTime = time();
-		//Loop until it passes, or time limt
-		while(TRUE) {
+		//Keep track of consecutive checks
+		$consecutiveSuccesses = 0;
+		//Require 3 clean checks for DNS
+		$requiredSuccesses = (($type === ConstantVariables::CHALLENGE_TYPE_DNS) ? 3 : 1);
+		//Loop until it can be successful
+		while(true) {
+			//Check for Timeout
 			if($verifyLocallyTimeout > 0 && (time() - $verifyStartTime) > $verifyLocallyTimeout) {
 				//Throw the Exception error
-				throw new \Exception("Verify `{$this->domain}` via {$type} timeout, the timeout setting is: {$verifyLocallyTimeout} seconds");
+				throw new \Exception("Local verification timeout for `{$this->domain}` via {$type}");
 			}
-
-			$challenge = $this->getChallenge($type);
+			//Get the domain
 			$domain = $this->identifier['value'];
-
+			$isPassing = false;
+			//Perform the check
 			if($type == ConstantVariables::CHALLENGE_TYPE_HTTP) {
-				if(CommonHelper::checkHttpChallenge($domain, $challenge['token'], $keyAuthorization) === TRUE) {
-					break;
-				}
+				$isPassing = CommonHelper::checkHttpChallenge($domain, $this->getChallenge($type)['token'], $keyAuthorization);
 			}
-
 			if($type == ConstantVariables::CHALLENGE_TYPE_DNS) {
-				$dnsContent = CommonHelper::base64UrlSafeEncode(hash('sha256', $keyAuthorization, TRUE));
-
-				if(CommonHelper::checkDNSChallenge($domain, $dnsContent) === TRUE) {
+				$dnsContent = CommonHelper::base64UrlSafeEncode(hash('sha256', $keyAuthorization, true));
+				$isPassing = CommonHelper::checkDNSChallenge($domain, $dnsContent);
+			}
+			//Ensure it's not a "fluke" or partial propagation
+			if($isPassing) {
+				//Increment counter
+				$consecutiveSuccesses++;
+				//If we've reached our required stable checks, we exit the loop
+				if($consecutiveSuccesses >= $requiredSuccesses) {
+					//Final "grace period" for secondary validation nodes
+					if($type === ConstantVariables::CHALLENGE_TYPE_DNS) { sleep(10); }
 					break;
 				}
 			}
-
-			sleep(3);
+			else {
+				//Reset counter if it fails even once
+				$consecutiveSuccesses = 0;
+			}
+			//Wait between checks.
+			//15 seconds is the "sweet spot" for DNS propagation cycles.
+			sleep(15);
 		}
 	}
 
@@ -221,20 +236,16 @@ class AuthorizationService
 	{
 		//Verify start time
 		$verifyStartTime = time();
-		//Wait for global propagation even if local check passed
-		if($type == ConstantVariables::CHALLENGE_TYPE_DNS) {
-			//60 seconds is recommended for secondary validation
-			sleep(60);
-		}
 		//Loop until conditions
 		while($this->status == 'pending') {
+			//If passed timeout, throw exception
 			if($verifyCATimeout > 0 && (time() - $verifyStartTime) > $verifyCATimeout) {
 				//Throw the Exception error
 				throw new \Exception("Verify `{$this->domain}` via {$type} timeout, the timeout setting is: {$verifyCATimeout} seconds");
 			}
-
-			sleep(3);
-
+			//Sleep for 5 seconds
+			sleep(5);
+			//getAuthorization
 			$this->getAuthorization();
 		}
 
