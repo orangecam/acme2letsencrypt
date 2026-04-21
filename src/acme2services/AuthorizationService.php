@@ -84,26 +84,35 @@ class AuthorizationService
 	 */
 	public function getAuthorization()
 	{
-		//Setup the GuzzleHttpClient
-		$client = new GuzzleHttpClient();
-		//Send the HEAD request and get the response
-		$response = $client->request('GET', $this->authorizationUrl);
-		//If acme2 endpoint is not responding, then throw an error
-		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
-			//Throw the Exception error
-			throw new \Exception("Get authorization info failed, the authorization url is: {$this->authorizationUrl}, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}, the body is: {".print_r($response->getBody()->__toString(), TRUE)."}");
-		}
-		//Get the body
+		//Try catch
 		try {
-			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+			//Setup the GuzzleHttpClient
+			$client = new GuzzleHttpClient();
+			//Send the HEAD request and get the response
+			$response = $client->request('GET', $this->authorizationUrl);
+			//Check if status code is successful
+			if($response->getStatusCode() !== 200) {
+				//Throw the Exception error
+				throw new \Exception("Get failed, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}");
+			}
+			//Check if the response content type is JSON
+			$contentType = $response->getHeaderLine('Content-Type');
+			//Check to make sure application/json is returned
+			if(strpos($contentType, 'application/json') === false) {
+				//Throw the Exception error
+				throw new \Exception("The response is not JSON, the url is: {".$this->authorizationUrl."}");
+			}
+			//Get the body
+			$body = json_decode(trim($response->getBody()->getContents()), true, 512, JSON_THROW_ON_ERROR);
+			//Populate
+			$this->populate($body);
+			//Return
+			return array_merge($body, ['authorizationUrl' => $this->authorizationUrl]);
 		}
-		catch(\JsonException $e) {
-			$body = trim($response->getBody()->__toString());
+		catch(\GuzzleHttp\Exception\GuzzleException $e) {
+			//Handle connection or client errors
+			throw new \Exception("Error: ".$e->getMessage());
 		}
-		//Populate
-		$this->populate($body);
-		//Return
-		return array_merge($body, ['authorizationUrl' => $this->authorizationUrl]);
 	}
 
 	/**
@@ -150,21 +159,28 @@ class AuthorizationService
 			ClientRequest::$runRequest->account->getAccountUrl(),
 			['keyAuthorization' => $keyAuthorization]
 		);
-		//Setup the GuzzleHttpClient
-		$client = new GuzzleHttpClient();
-		//Send the GET request, to make sure it is responding
-		$response = $client->request('POST', $challenge['url'], [
-			'headers' => [
-				'Accept' => 'application/jose+json',
-				'Content-Type' => 'application/jose+json',
-				'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
-			],
-			'body' => $jwk
-		]);
-		//If acme2 endpoint is not responding, then throw an error
-		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
-			//Throw the Exception error
-			throw new \Exception("Send Request to letsencrypt to verify authorization failed, the url is: {".$challenge['url']."}, the domain is: {$this->identifier['value']}, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}, the body is: {".print_r($response->getBody()->__toString(), TRUE)."}");
+		//Try catch
+		try {
+			//Setup the GuzzleHttpClient
+			$client = new GuzzleHttpClient();
+			//Send the GET request, to make sure it is responding
+			$response = $client->request('POST', $challenge['url'], [
+				'headers' => [
+					'Accept' => 'application/jose+json',
+					'Content-Type' => 'application/jose+json',
+					'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+				],
+				'body' => $jwk
+			]);
+			//Check if status code is successful
+			if($response->getStatusCode() !== 200) {
+				//Throw the Exception error
+				throw new \Exception("Post failed, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}, the body is: {".print_r($response->getBody()->__toString(), TRUE)."}");
+			}
+		}
+		catch(\GuzzleHttp\Exception\GuzzleException $e) {
+			//Handle connection or client errors
+			throw new \Exception("Error: ".$e->getMessage());
 		}
 		//VerifyCA
 		$this->verifyCA($type, $verifyCATimeout);

@@ -131,6 +131,12 @@ class OrderService
 	private $_orderInfoPath;
 
 	/**
+	 * Renewal info file storage path
+	 * @var string
+	 */
+	private $_renewalInfoPath;
+
+	/**
 	 * OrderService constructor.
 	 * OrderService constructor.
 	 * @param array $domainInfo
@@ -191,6 +197,7 @@ class OrderService
 			'_certificatePath' => 'certificate.crt',
 			'_certificateFullChainedPath' => 'certificate-fullchained.crt',
 			'_orderInfoPath' => 'ORDER',
+			'_renewalInfoPath' => 'RENEWALINFO',
 		];
 
 		foreach($pathMap as $propertyName => $fileName) {
@@ -198,12 +205,23 @@ class OrderService
 		}
 
 		if($this->_generateNewOrder === TRUE) {
+			//Check if _renewalInfoPath exists
+			if(file_exists($this->_renewalInfoPath)) {
+				$renewalInfo = json_decode(file_get_contents($this->_renewalInfoPath), true);
+				//Check if suggested window is there
+				if(isset($renewalInfo['suggestedWindow']['start']) && !empty($renewalInfo['suggestedWindow']['start'])) {
+					$targetDate = new \DateTime($renewalInfo['suggestedWindow']['start']);
+					$now = new \DateTime();
+					if($targetDate > $now) {
+						throw new \Exception('Renewal window is not yet arrived, cannot renew.');
+					}
+				}
+			}
+			//Unlink the files, and generate the new order
 			foreach($pathMap as $propertyName => $fileName) {
 				@unlink($basePath.DIRECTORY_SEPARATOR.$fileName);
 			}
-		}
-
-		if($this->_generateNewOrder === TRUE) {
+			//Create the order if good to go
 			$this->createOrder();
 		}
 		else {
@@ -244,44 +262,46 @@ class OrderService
 			ClientRequest::$runRequest->account->getAccountUrl(),
 			$payload
 		);
-		//Setup the GuzzleHttpClient
-		$client = new GuzzleHttpClient();
-		//Send the HEAD request and get the response
-		$response = $client->request('POST', ClientRequest::$runRequest->endpoint->newOrder, [
-			'headers' => [
-				'Accept' => 'application/jose+json',
-				'Content-Type' => 'application/jose+json',
-				'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
-			],
-			'body' => $jws
-		]);
-		//If acme2 endpoint is not responding, then throw an error
-		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 201) {
-			//Throw the Exception error
-			throw new \Exception('Create order failed, the domain list is: '.implode(', ', $this->_domainList).", the code is: {$response->getStatusCode()}, the header is: {".print_r($response->getHeaders(), true)."}, the body is: ".print_r($body, TRUE));
-		}
-		//Get the Location header
-		$orderUrl = $response->getHeaderLine('Location');
-		//If header does not exist, then throw an error
-		if(empty($orderUrl)) {
-			//Throw the Exception error
-			throw new \Exception('Get order url failed during order creation, the domain list is: '.implode(', ', $this->_domainList));
-		}
-		//Get the body
+		//Try catch
 		try {
-			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+			//Setup the GuzzleHttpClient
+			$client = new GuzzleHttpClient();
+			//Send the HEAD request and get the response
+			$response = $client->request('POST', ClientRequest::$runRequest->endpoint->newOrder, [
+				'headers' => [
+					'Accept' => 'application/jose+json',
+					'Content-Type' => 'application/jose+json',
+					'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+				],
+				'body' => $jws
+			]);
+			//Check if status code is successful
+			if($response->getStatusCode() !== 201) {
+				//Throw the Exception error
+				throw new \Exception("Post failed, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}, the body is: {".print_r($response->getBody()->__toString(), TRUE)."}");
+			}
+			//Get the Location header
+			$orderUrl = $response->getHeaderLine('Location');
+			//If header does not exist, then throw an error
+			if(empty($orderUrl)) {
+				//Throw the Exception error
+				throw new \Exception('Get order url failed during order creation, the domain list is: '.implode(', ', $this->_domainList));
+			}
+			//Get the body
+			$body = json_decode(trim($response->getBody()->getContents()), true, 512, JSON_THROW_ON_ERROR);
+			//Merge data
+			$orderInfo = array_merge($body, ['orderUrl' => $orderUrl]);
+			//Populate it
+			$this->populate($orderInfo);
+			$this->setOrderInfoToCache(['orderUrl' => $orderUrl]);
+			$this->getAuthorizationList();
+			//Return
+			return $orderInfo;
 		}
-		catch(\JsonException $e) {
-			$body = trim($response->getBody()->__toString());
+		catch(\GuzzleHttp\Exception\GuzzleException $e) {
+			//Handle connection or client errors
+			throw new \Exception("Error: ".$e->getMessage());
 		}
-		//Merge data
-		$orderInfo = array_merge($body, ['orderUrl' => $orderUrl]);
-		//Populate it
-		$this->populate($orderInfo);
-		$this->setOrderInfoToCache(['orderUrl' => $orderUrl]);
-		$this->getAuthorizationList();
-		//Return
-		return $orderInfo;
 	}
 
 	/**
@@ -299,31 +319,33 @@ class OrderService
 		}
 		//Get the orderUrl
 		$orderUrl = $this->getOrderInfoFromCache()['orderUrl'];
-		//Setup the GuzzleHttpClient
-		$client = new GuzzleHttpClient();
-		//Send the HEAD request and get the response
-		$response = $client->request('GET', $orderUrl);
-		//If acme2 endpoint is not responding, then throw an error
-		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
-			//Throw the Exception error
-			throw new \Exception("Get order info failed, the order url is: {$orderUrl}, the code is: {$response->getStatusCode()}, the header is: {".print_r($response->getHeaders(), true)."}, the body is: ".print_r($body, TRUE));
-		}
-		//Get the body
+		//Try catch
 		try {
-			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+			//Setup the GuzzleHttpClient
+			$client = new GuzzleHttpClient();
+			//Send the HEAD request and get the response
+			$response = $client->request('GET', $orderUrl);
+			//Check if status code is successful
+			if($response->getStatusCode() !== 200) {
+				//Throw the Exception error
+				throw new \Exception("Get failed, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}");
+			}
+			//Get the body
+			$body = json_decode(trim($response->getBody()->getContents()), true, 512, JSON_THROW_ON_ERROR);
+			//Populate
+			$this->populate(array_merge($body, ['orderUrl' => $orderUrl]));
+			//Check if authorization list is true
+			if($getAuthorizationList === TRUE) {
+				//getAuthorizationList()
+				$this->getAuthorizationList();
+			}
+			//Return
+			return array_merge($body, ['orderUrl' => $orderUrl]);
 		}
-		catch(\JsonException $e) {
-			$body = trim($response->getBody()->__toString());
+		catch(\GuzzleHttp\Exception\GuzzleException $e) {
+			//Handle connection or client errors
+			throw new \Exception("Error: ".$e->getMessage());
 		}
-		//Populate
-		$this->populate(array_merge($body, ['orderUrl' => $orderUrl]));
-		//Check if authorization list is true
-		if($getAuthorizationList === TRUE) {
-			//getAuthorizationList()
-			$this->getAuthorizationList();
-		}
-		//Return
-		return array_merge($body, ['orderUrl' => $orderUrl]);
 	}
 
 	/**
@@ -396,45 +418,49 @@ class OrderService
 		$this->waitStatus('ready');
 		$this->finalizeOrder(CommonHelper::getCSRWithoutComment($csr ?: $this->getCSR()));
 		$this->waitStatus('valid');
-		//Setup the GuzzleHttpClient
-		$client = new GuzzleHttpClient();
-		//Send the HEAD request and get the response
-		$response = $client->request('GET', $this->certificate);
-		//If acme2 endpoint is not responding, then throw an error
-		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
-			//Throw the Exception error
-			throw new \Exception("Fetch certificate from letsencrypt failed, the url is: {$this->certificate}, the domain list is: ".implode(', ', $this->_domainList).", the code is: {$response->getStatusCode()}, the header is: {".print_r($response->getHeaders(), true)."}, the body is: ".print_r($body, TRUE));
-		}
-		//Get the body
+		//Try catch
 		try {
-			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+			//Setup the GuzzleHttpClient
+			$client = new GuzzleHttpClient();
+			//Send the HEAD request and get the response
+			$response = $client->request('GET', $this->certificate);
+			//Check if status code is successful
+			if($response->getStatusCode() !== 200) {
+				//Throw the Exception error
+				throw new \Exception("Get failed, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}");
+			}
+			//Get the body
+			$body = json_decode(trim($response->getBody()->getContents()), true, 512, JSON_THROW_ON_ERROR);
+			//Cert map, body
+			$certificateMap = CommonHelper::extractCertificate($body);
+			//Put the contents in the folder
+			file_put_contents($this->_certificatePath, $certificateMap['certificate']);
+			file_put_contents($this->_certificateFullChainedPath, $certificateMap['certificateFullChained']);
+			//Parse x509 cert
+			$certificateInfo = openssl_x509_parse($certificateMap['certificate']);
+			//Set order info
+			$this->setOrderInfoToCache([
+				'validFromTimestamp' => $certificateInfo['validFrom_time_t'],
+				'validToTimestamp' => $certificateInfo['validTo_time_t'],
+				'validFromTime' => date('Y-m-d H:i:s', $certificateInfo['validFrom_time_t']),
+				'validToTime' => date('Y-m-d H:i:s', $certificateInfo['validTo_time_t']),
+			]);
+			//Get the renewal info and save to file
+			$this->renewalInfo();
+			//Return
+			return [
+				'privateKey' => realpath($this->_privateKeyPath),
+				'publicKey' => realpath($this->_publicKeyPath),
+				'certificate' => realpath($this->_certificatePath),
+				'certificateFullChained' => realpath($this->_certificateFullChainedPath),
+				'validFromTimestamp' => $certificateInfo['validFrom_time_t'],
+				'validToTimestamp' => $certificateInfo['validTo_time_t'],
+			];
 		}
-		catch(\JsonException $e) {
-			$body = trim($response->getBody()->__toString());
+		catch(\GuzzleHttp\Exception\GuzzleException $e) {
+			//Handle connection or client errors
+			throw new \Exception("Error: ".$e->getMessage());
 		}
-		//Cert map, body
-		$certificateMap = CommonHelper::extractCertificate($body);
-		//Put the contents in the folder
-		file_put_contents($this->_certificatePath, $certificateMap['certificate']);
-		file_put_contents($this->_certificateFullChainedPath, $certificateMap['certificateFullChained']);
-		//Parse x509 cert
-		$certificateInfo = openssl_x509_parse($certificateMap['certificate']);
-		//Set order info
-		$this->setOrderInfoToCache([
-			'validFromTimestamp' => $certificateInfo['validFrom_time_t'],
-			'validToTimestamp' => $certificateInfo['validTo_time_t'],
-			'validFromTime' => date('Y-m-d H:i:s', $certificateInfo['validFrom_time_t']),
-			'validToTime' => date('Y-m-d H:i:s', $certificateInfo['validTo_time_t']),
-		]);
-		//Return
-		return [
-			'privateKey' => realpath($this->_privateKeyPath),
-			'publicKey' => realpath($this->_publicKeyPath),
-			'certificate' => realpath($this->_certificatePath),
-			'certificateFullChained' => realpath($this->_certificateFullChainedPath),
-			'validFromTimestamp' => $certificateInfo['validFrom_time_t'],
-			'validToTimestamp' => $certificateInfo['validTo_time_t'],
-		];
 	}
 
 	/**
@@ -467,24 +493,31 @@ class OrderService
 			],
 			$this->getPrivateKey()
 		);
-		//Setup the GuzzleHttpClient
-		$client = new GuzzleHttpClient();
-		//Send the HEAD request and get the response
-		$response = $client->request('POST', ClientRequest::$runRequest->endpoint->revokeCert, [
-			'headers' => [
-				'Accept' => 'application/jose+json',
-				'Content-Type' => 'application/jose+json',
-				'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
-			],
-			'body' => $jws
-		]);
-		//If acme2 endpoint is not responding, then throw an error
-		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
-			//Throw the Exception error
-			throw new \Exception("Revoke certificate failed, the domain list is: ".implode(', ', $this->_domainList).", the code is: {$response->getStatusCode()}, the header is: {".print_r($response->getHeaders(), true)."}, the body is: ".print_r($body, TRUE));
+		//Try catch
+		try {
+			//Setup the GuzzleHttpClient
+			$client = new GuzzleHttpClient();
+			//Send the HEAD request and get the response
+			$response = $client->request('POST', ClientRequest::$runRequest->endpoint->revokeCert, [
+				'headers' => [
+					'Accept' => 'application/jose+json',
+					'Content-Type' => 'application/jose+json',
+					'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+				],
+				'body' => $jws
+			]);
+			//Check if status code is successful
+			if($response->getStatusCode() !== 200) {
+				//Throw the Exception error
+				throw new \Exception("Post failed, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}, the body is: {".print_r($response->getBody()->__toString(), TRUE)."}");
+			}
+			//Return
+			return TRUE;
 		}
-		//Return
-		return TRUE;
+		catch(\GuzzleHttp\Exception\GuzzleException $e) {
+			//Handle connection or client errors
+			throw new \Exception("Error: ".$e->getMessage());
+		}
 	}
 
 	/**
@@ -524,32 +557,34 @@ class OrderService
 			ClientRequest::$runRequest->account->getAccountUrl(),
 			['csr' => trim(CommonHelper::base64UrlSafeEncode(base64_decode($csr)))]
 		);
-		//Setup the GuzzleHttpClient
-		$client = new GuzzleHttpClient();
-		//Send the HEAD request and get the response
-		$response = $client->request('POST', $this->finalize, [
-			'headers' => [
-				'Accept' => 'application/jose+json',
-				'Content-Type' => 'application/jose+json',
-				'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
-			],
-			'body' => $jws
-		]);
-		//If acme2 endpoint is not responding, then throw an error
-		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
-			//Throw the Exception error
-			throw new \Exception("Finalize order failed, the url is: {$this->finalize}, the domain list is: ".implode(', ', $this->_domainList).", the code is: {$response->getStatusCode()}, the header is: {".print_r($response->getHeaders(), true)."}, the body is: ".print_r($body, TRUE));
-		}
-		//Get the body
+		//Try catch
 		try {
-			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+			//Setup the GuzzleHttpClient
+			$client = new GuzzleHttpClient();
+			//Send the HEAD request and get the response
+			$response = $client->request('POST', $this->finalize, [
+				'headers' => [
+					'Accept' => 'application/jose+json',
+					'Content-Type' => 'application/jose+json',
+					'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+				],
+				'body' => $jws
+			]);
+			//Check if status code is successful
+			if($response->getStatusCode() !== 200) {
+				//Throw the Exception error
+				throw new \Exception("Post failed, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}, the body is: {".print_r($response->getBody()->__toString(), TRUE)."}");
+			}
+			//Get the body
+			$body = json_decode(trim($response->getBody()->getContents()), true, 512, JSON_THROW_ON_ERROR);
+			//Populate
+			$this->populate($body);
+			$this->getAuthorizationList();
 		}
-		catch(\JsonException $e) {
-			$body = trim($response->getBody()->__toString());
+		catch(\GuzzleHttp\Exception\GuzzleException $e) {
+			//Handle connection or client errors
+			throw new \Exception("Error: ".$e->getMessage());
 		}
-		//Populate
-		$this->populate($body);
-		$this->getAuthorizationList();
 	}
 
 	/**
@@ -564,6 +599,102 @@ class OrderService
 
 			$this->_authorizationList[] = $authorization;
 		}
+	}
+
+	/**
+	 * Get the renewal info and save out to file
+	 */
+	private function renewalInfo()
+	{
+		//The path to your fullchain file
+		$fullChainPath = realpath($this->_certificateFullChainedPath);
+		//Make sure file exists
+		if(!file_exists($fullChainPath)) {
+			//Throw the Exception error
+			throw new \Exception("The .crt file was not found");
+		}
+		//Get the full chained cert from the file system
+		$fullChainContent = file_get_contents($fullChainPath);
+		//Split the file by the end delimiter
+		$parts = explode('-----END CERTIFICATE-----', $fullChainContent);
+		//Clean up and restore the delimiters
+		//The first block is the certificate itself
+		$certificatePem = trim($parts[0])."\n-----END CERTIFICATE-----";
+		//Now generate the cert ID and get the renewal info
+		try {
+			//Get the certID
+			$certId = $this->getAcmeCertIdRenewalData($certificatePem);
+			//Setup the GuzzleHttpClient
+			$client = new GuzzleHttpClient();
+			//Send the GET request and get the response
+			$response = $client->request('GET', ClientRequest::$runRequest->endpoint->renewalInfo.'/'.$certId);
+			//Check if status code is successful
+			if($response->getStatusCode() !== 200) {
+				//Throw the Exception error
+				throw new \Exception("Get endpoint info failed, status code: {$response->getStatusCode()}");
+			}
+			//Check if the response content type is JSON
+			$contentType = $response->getHeaderLine('Content-Type');
+			//Check to make sure application/json is returned
+			if(strpos($contentType, 'application/json') === false) {
+				//Throw the Exception error
+				throw new \Exception("The response is not JSON, the url is: {".ClientRequest::$runRequest->endpoint->renewalInfo.'/'.$certId."}");
+			}
+			//Get the body
+			$body = json_decode(trim($response->getBody()->getContents()), true, 512, JSON_THROW_ON_ERROR);
+			//Push renewal info to file
+			file_put_contents($this->_renewalInfoPath, json_encode($body));
+			//Return
+			return;
+		}
+		catch(\Exception $e) {
+			//Throw the Exception error
+			throw new \Exception("Failed to generate CertID: ".$e->getMessage());
+		}
+	}
+
+	/**
+	 * Generates the CertID for the ACME ARI endpoint.
+	 *
+	 * @param string $certificatePem The PEM encoded certificate to check.
+	 * @param string $issuerPem The PEM encoded issuer (CA) certificate.
+	 * @return string The formatted CertID.
+	 * @throws Exception
+	 */
+	public function getAcmeCertIdRenewalData(string $certificatePem): string
+	{
+		//Parse the certificate to get the serial number
+		$certData = openssl_x509_parse($certificatePem);
+		if(!isset($certData["extensions"]["authorityKeyIdentifier"])) {
+			throw new Exception("Certificate missing AKI extension");
+		}
+		//Extract AKI from extensions
+		//The array usually contains "keyid:XX:YY..." or just "XX:YY..."
+		$akiRaw = $certData["extensions"]["authorityKeyIdentifier"];
+		$akiClean = str_replace(["keyid:", ":", "\n", " "], "", $akiRaw);
+		$akiBin = hex2bin($akiClean);
+		//Extract Serial Number
+		//Note: openssl_x509_parse provides 'serialNumberHex' which is already the hex string
+		$serialHex = $certData["serialNumberHex"];
+		//Ensure the hex string has an even length for hex2bin
+		if(strlen($serialHex) % 2 !== 0) {
+			$serialHex = "0".$serialHex;
+		}
+		//If the first byte is > 7F (e.g., 80-FF), DER requires a leading 00.
+		//Your serial 2C... starts with 2C (less than 80), so no extra 00 is needed.
+		//However, a robust implementation checks the first byte:
+		$firstByte = hexdec(substr($serialHex, 0, 2));
+		if($firstByte > 0x7f) {
+			$serialHex = "00".$serialHex;
+		}
+		$serialBin = hex2bin($serialHex);
+		//Encode both to Base64URL
+		$akiBase64 = str_replace(["+", "/", "="], ["-", "_", ""], base64_encode($akiBin));
+		$serialBase64 = str_replace(["+", "/", "="], ["-", "_", ""], base64_encode($serialBin));
+
+		//Result
+		$uniqueId = $akiBase64.".".$serialBase64;
+		return $uniqueId;
 	}
 
 	/**

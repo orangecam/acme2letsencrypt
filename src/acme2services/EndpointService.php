@@ -53,6 +53,12 @@ class EndpointService
 	public $newOrder;
 
 	/**
+	 * Renewal info url
+	 * @var string
+	 */
+	public $renewalInfo;
+
+	/**
 	 * Revoke certificate url
 	 * @var string
 	 */
@@ -76,26 +82,30 @@ class EndpointService
 	{
 		//Which endpoint to use
 		$acme2EndpointUrl = ((empty($staging)) ? $this->endpointUrl : $this->endpointStagingUrl);
-		//Setup the GuzzleHttpClient
-		$client = new GuzzleHttpClient();
-		//Send the GET request, to make sure it is responding
-		$response = $client->request('GET', $acme2EndpointUrl);
-		//If acme2 endpoint is not responding, then throw an error
-		if(!($response instanceof \GuzzleHttp\Psr7\Response) || $response->getStatusCode() != 200) {
-			//Throw the Exception error
-			throw new Exception("Get endpoint info failed, the url is: {$acme2EndpointUrl}");
-		}
-		//Get the body
-		if(!empty(strpos($response->getHeaderLine('Content-Type'), 'application/json'))) {
-			//Throw the Exception error
-			throw new Exception("The body from the get endpoint is not valid, the url is: {$acme2EndpointUrl}");
-		}
-		//Get the body
+		//Try catch
 		try {
-			$body = json_decode(trim($response->getBody()->__toString()), TRUE, 512, JSON_THROW_ON_ERROR);
+			//Setup the GuzzleHttpClient
+			$client = new GuzzleHttpClient();
+			//Send the GET request, to make sure it is responding
+			$response = $client->request('GET', $acme2EndpointUrl);
+			//Check if status code is successful
+			if($response->getStatusCode() !== 200) {
+				//Throw the Exception error
+				throw new \Exception("Get failed, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}");
+			}
+			//Check if the response content type is JSON
+			$contentType = $response->getHeaderLine('Content-Type');
+			//Check to make sure application/json is returned
+			if(strpos($contentType, 'application/json') === false) {
+				//Throw the Exception error
+				throw new \Exception("The response is not JSON, the url is: {".$acme2EndpointUrl."}");
+			}
+			//Get the body
+			$body = json_decode(trim($response->getBody()->getContents()), true, 512, JSON_THROW_ON_ERROR);
 		}
-		catch(\JsonException $e) {
-			$body = trim($response->getBody()->__toString());
+		catch(\GuzzleHttp\Exception\GuzzleException $e) {
+			//Handle connection or client errors
+			throw new \Exception("Error: ".$e->getMessage());
 		}
 		//Populate if property exists
 		foreach($body as $key => $value) {
