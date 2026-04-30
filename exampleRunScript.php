@@ -75,7 +75,15 @@ class Run
 					((empty($subDominanName)) ? 'www.'.$combinedDomainNameDot : ''),
 				],
 			];
-			$order = $client->getOrder($domainInfo, $order_number);
+			try {
+				//Try to get new order
+				$order = $client->getOrder($domainInfo, $order_number);
+			}
+			catch(\Exception $e) {
+				//Renewal is not ready yet
+				break;
+			}
+			//Get challenge list
 			$challengeList = $order->getPendingChallengeList();
 			$path = $pathToWwwRoot.$combinedDomainNameDot.'/.well-known';
 			if(file_exists($path)) {
@@ -190,7 +198,15 @@ class Run
 					((empty($subDominanName)) ? '*.'.$combinedDomainNameDot : ''),
 				],
 			];
-			$order = $client->getOrder($domainInfo, $order_number);
+			try {
+				//Try to get new order
+				$order = $client->getOrder($domainInfo, $order_number);
+			}
+			catch(\Exception $e) {
+				//Renewal is not ready yet
+				break;
+			}
+			//Get challenge list
 			$challengeList = $order->getPendingChallengeList();
 			//Keep track if it failed
 			$failure_verify = false;
