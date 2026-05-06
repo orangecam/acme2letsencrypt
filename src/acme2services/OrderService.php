@@ -430,7 +430,7 @@ class OrderService
 				throw new \Exception("Get failed, the code is: {$response->getStatusCode()}, the headers are: {".print_r($response->getHeaders(), true)."}");
 			}
 			//Get the body
-			$body = json_decode(trim($response->getBody()->getContents()), true, 512, JSON_THROW_ON_ERROR);
+			$body = $response->getBody()->getContents();
 			//Cert map, body
 			$certificateMap = CommonHelper::extractCertificate($body);
 			//Put the contents in the folder
