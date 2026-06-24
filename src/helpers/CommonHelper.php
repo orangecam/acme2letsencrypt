@@ -108,9 +108,8 @@ class CommonHelper
 	}
 
 	/**
-	 * Get common name for csr generation
-	 * @param array $domainList
-	 * @return mixed
+	 * Check if the dig command is available on this system
+	 * @return bool
 	 */
 	public static function is_dig_supported()
 	{

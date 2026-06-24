@@ -10,7 +10,7 @@
 
 namespace orangecam\acme2letsencrypt\acme2services;
 
-use GuzzleHttp\Client as GuzzleHttpClient;
+use orangecam\acme2letsencrypt\acme2services\HttpClientService as HttpClient;
 
 /**
  * Class EndpointService
@@ -65,12 +65,20 @@ class EndpointService
 	public $revokeCert;
 
 	/**
+	 * Shared HTTP client service
+	 * @var HttpClient
+	 */
+	private $http;
+
+	/**
 	 * EndpointService constructor
 	 * @param bool $staging
+	 * @param HttpClient $http
 	 * @throws \Exception
 	 */
-	public function __construct(bool $staging)
+	public function __construct(bool $staging, HttpClient $http)
 	{
+		$this->http = $http;
 		$this->populate($staging);
 	}
 
@@ -84,8 +92,8 @@ class EndpointService
 		$acme2EndpointUrl = ((empty($staging)) ? $this->endpointUrl : $this->endpointStagingUrl);
 		//Try catch
 		try {
-			//Setup the GuzzleHttpClient
-			$client = new GuzzleHttpClient();
+			//Use the shared HTTP client
+			$client = $this->http->getClient();
 			//Send the GET request, to make sure it is responding
 			$response = $client->request('GET', $acme2EndpointUrl);
 			//Check if status code is successful

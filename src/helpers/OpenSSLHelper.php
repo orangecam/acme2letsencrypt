@@ -11,7 +11,7 @@
 namespace orangecam\acme2letsencrypt\helpers;
 
 use orangecam\acme2letsencrypt\constants\ConstantVariables;
-use orangecam\acme2letsencrypt\ClientRequest;
+use orangecam\acme2letsencrypt\acme2services\NonceService;
 
 /**
  * Class OpenSSLHelper
@@ -125,12 +125,12 @@ class OpenSSLHelper
 
 	/**
 	 * Generate thumbprint
-	 * @param string|null $privateKey
+	 * @param string $privateKey
 	 * @return mixed
 	 */
-	public static function generateThumbprint(string|null $privateKey = NULL)
+	public static function generateThumbprint(string $privateKey)
 	{
-		$privateKey = openssl_pkey_get_private($privateKey ?: ClientRequest::$runRequest->account->getPrivateKey());
+		$privateKey = openssl_pkey_get_private($privateKey);
 		$detail = openssl_pkey_get_details($privateKey);
 
 		$accountKey = [
@@ -146,27 +146,17 @@ class OpenSSLHelper
 	 * Generate JWS(Json Web Signature) with field `jwk`
 	 * @param string $url
 	 * @param array|string $payload
-	 * @param string|null $privateKey
+	 * @param string $privateKey
+	 * @param NonceService $nonceService
 	 * @return string
 	 * @throws \Exception
 	 */
-	public static function generateJWSOfJWK(string $url, array|string $payload, string|null $privateKey = NULL)
+	public static function generateJWSOfJWK(string $url, array|string $payload, string $privateKey, NonceService $nonceService)
 	{
-		$privateKey = openssl_pkey_get_private($privateKey ?: ClientRequest::$runRequest->account->getPrivateKey());
+		$privateKey = openssl_pkey_get_private($privateKey);
 		$detail = openssl_pkey_get_details($privateKey);
 
-		$nonce = null;
-		while(true) {
-			try {
-				$get_nonce = ClientRequest::$runRequest->nonce->getNewNonce();
-				$nonce = $get_nonce;
-				break;
-			}
-			catch (\Exception $e) {
-				//try again in 1 minute
-				sleep(60);
-			}
-		}
+		$nonce = self::fetchNonceWithBackoff($nonceService);
 
 		$protected = [
 			'alg' => 'RS256',
@@ -197,25 +187,16 @@ class OpenSSLHelper
 	 * @param string $url
 	 * @param string $kid
 	 * @param array|string $payload
+	 * @param string $privateKey
+	 * @param NonceService $nonceService
 	 * @return string
 	 * @throws \Exception
 	 */
-	public static function generateJWSOfKid(string $url, string $kid, array|string $payload)
+	public static function generateJWSOfKid(string $url, string $kid, array|string $payload, string $privateKey, NonceService $nonceService)
 	{
-		$privateKey = openssl_pkey_get_private(ClientRequest::$runRequest->account->getPrivateKey());
+		$privateKey = openssl_pkey_get_private($privateKey);
 
-		$nonce = null;
-		while(true) {
-			try {
-				$get_nonce = ClientRequest::$runRequest->nonce->getNewNonce();
-				$nonce = $get_nonce;
-				break;
-			}
-			catch (\Exception $e) {
-				//Try again in 1 minute
-				sleep(60);
-			}
-		}
+		$nonce = self::fetchNonceWithBackoff($nonceService);
 
 		$protected = [
 			'alg' => 'RS256',
@@ -235,5 +216,40 @@ class OpenSSLHelper
 			'payload' => $payloadBase64,
 			'signature' => $signatureBase64,
 		]);
+	}
+
+	/**
+	 * Fetch a nonce with exponential backoff
+	 * @param NonceService $nonceService
+	 * @param int $maxAttempts
+	 * @param int $initialDelaySeconds
+	 * @param int $maxDelaySeconds
+	 * @return string
+	 * @throws \Exception
+	 */
+	private static function fetchNonceWithBackoff(
+		NonceService $nonceService,
+		int $maxAttempts = 6,
+		int $initialDelaySeconds = 2,
+		int $maxDelaySeconds = 30
+	): string
+	{
+		$delay = $initialDelaySeconds;
+		$lastException = null;
+		for($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+			try {
+				return $nonceService->getNewNonce();
+			}
+			catch(\Exception $e) {
+				$lastException = $e;
+				if($attempt < $maxAttempts) {
+					sleep($delay);
+					$delay = min($delay * 2, $maxDelaySeconds);
+				}
+			}
+		}
+		throw new \Exception(
+			"Failed to obtain a nonce after {$maxAttempts} attempts: ".$lastException->getMessage()
+		);
 	}
 }

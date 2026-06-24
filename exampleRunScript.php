@@ -11,7 +11,7 @@ class Run
 	 * Get ssl cert using HTTP-01 as verification method for site ownership
 	 * @param $sslDir:string ex: /var/www/ssl
 	 * @param $emailList:array ex: ['test@test.com']
-	 * @param $subDominanName:string ex: dev
+	 * @param $subDomainName:string ex: dev
 	 * @param $baseDomainName:string ex: test
 	 * @param $TLD:string ex: com
 	 * @param $pathToWwwRoot:string ex: /var/www/hosts/
@@ -22,7 +22,7 @@ class Run
 	public function getSslCert_usingHttp(
 		string $sslDir = "",
 		array $emailList = [],
-		string $subDominanName = "",
+		string $subDomainName = "",
 		string $baseDomainName = "",
 		string $TLD = 'com',
 		string $pathToWwwRoot = '/var/www/hosts/',
@@ -38,8 +38,8 @@ class Run
 		//Setup the domain_name to use
 		$combinedDomainNameUnderscore = $baseDomainName.'_'.$TLD;
 		//If $subDommainName is not empty, then reset the combinedDomainNameUnderscore
-		if(!empty($subDominanName)) {
-			$combinedDomainNameUnderscore = $subDominanName.'_'.$baseDomainName.'_'.$TLD;
+		if(!empty($subDomainName)) {
+			$combinedDomainNameUnderscore = $subDomainName.'_'.$baseDomainName.'_'.$TLD;
 		}
 		//If not renewing the cert, then remove old files
 		if($renewCert == FALSE) {
@@ -62,17 +62,16 @@ class Run
 		//Setup the domain_name to use
 		$combinedDomainNameDot = $baseDomainName.'.'.$TLD;
 		//If $subDommainName is not empty, then reset the combinedDomainNameDot
-		if(!empty($subDominanName)) {
-			$combinedDomainNameDot = $subDominanName.'.'.$baseDomainName.'.'.$TLD;
+		if(!empty($subDomainName)) {
+			$combinedDomainNameDot = $subDomainName.'.'.$baseDomainName.'.'.$TLD;
 		}
 		//Loop through for each order and execute
 		foreach($order_list as $order_number) {
 			$client = new ClientRequest($emailList, $sslDir.$combinedDomainNameUnderscore, $useStagingUrl);
-			$account = $client->getAccount();
 			$domainInfo = [
 				ConstantVariables::CHALLENGE_TYPE_HTTP => [
 					$combinedDomainNameDot,
-					((empty($subDominanName)) ? 'www.'.$combinedDomainNameDot : ''),
+					((empty($subDomainName)) ? 'www.'.$combinedDomainNameDot : ''),
 				],
 			];
 			try {
@@ -122,7 +121,7 @@ class Run
 				$certificateFullChained = file_get_contents($certificateInfo['certificateFullChained']);
 				//Set the basename
 				$base_name = $sslDir.$combinedDomainNameUnderscore.'/'.$combinedDomainNameUnderscore;
-				//If order is KEY_PAIR_TYPE_EC, then append _ecc to the filename to differentie it
+				//If order is KEY_PAIR_TYPE_EC, then append _ecc to the filename to differentiate it
 				if($order_number == ConstantVariables::KEY_PAIR_TYPE_EC) {
 					$base_name = $sslDir.$combinedDomainNameUnderscore.'/'.$combinedDomainNameUnderscore.'_ecc';
 				}
@@ -139,7 +138,7 @@ class Run
 	 * Get ssl cert using DNS-01 as verification method for site ownership
 	 * @param $sslDir:string ex: /var/www/ssl
 	 * @param $emailList:array ex: ['test@test.com']
-	 * @param $subDominanName:string ex: test
+	 * @param $subDomainName:string ex: test
 	 * @param $baseDomainName:string ex: test
 	 * @param $TLD:string ex: com
 	 * @param $godaddyCredentials:array ex: ['key' => 'xxxxxxxx', 'secret' => 'xxxxxxxxx']
@@ -150,7 +149,7 @@ class Run
 	public function getSslCert_usingDns(
 		string $sslDir = "",
 		array $emailList = [],
-		string $subDominanName = "",
+		string $subDomainName = "",
 		string $baseDomainName = "",
 		string $TLD = 'com',
 		array $godaddyCredentials = [],
@@ -161,8 +160,8 @@ class Run
 		//Setup the domain_name to use
 		$combinedDomainNameUnderscore = $baseDomainName.'_'.$TLD;
 		//If $subDommainName is not empty, then reset the combinedDomainNameUnderscore
-		if(!empty($subDominanName)) {
-			$combinedDomainNameUnderscore = $subDominanName.'_'.$baseDomainName.'_'.$TLD;
+		if(!empty($subDomainName)) {
+			$combinedDomainNameUnderscore = $subDomainName.'_'.$baseDomainName.'_'.$TLD;
 		}
 		//If not renewing the cert, then remove old files
 		if($renewCert == FALSE) {
@@ -185,17 +184,16 @@ class Run
 		//Setup the domain_name to use
 		$combinedDomainNameDot = $baseDomainName.'.'.$TLD;
 		//If $subDommainName is not empty, then reset the combinedDomainNameDot
-		if(!empty($subDominanName)) {
-			$combinedDomainNameDot = $subDominanName.'.'.$baseDomainName.'.'.$TLD;
+		if(!empty($subDomainName)) {
+			$combinedDomainNameDot = $subDomainName.'.'.$baseDomainName.'.'.$TLD;
 		}
 		//Loop through for each order and execute
 		foreach($order_list as $order_number) {
 			$client = new ClientRequest($emailList, $sslDir.$combinedDomainNameUnderscore, $useStagingUrl);
-			$account = $client->getAccount();
 			$domainInfo = [
 				ConstantVariables::CHALLENGE_TYPE_DNS => [
 					$combinedDomainNameDot,
-					((empty($subDominanName)) ? '*.'.$combinedDomainNameDot : ''),
+					((empty($subDomainName)) ? '*.'.$combinedDomainNameDot : ''),
 				],
 			];
 			try {
@@ -238,7 +236,7 @@ class Run
 				$certificateFullChained = file_get_contents($certificateInfo['certificateFullChained']);
 				//Set the basename
 				$base_name = $sslDir.$combinedDomainNameUnderscore.'/'.$combinedDomainNameUnderscore;
-				//If order is KEY_PAIR_TYPE_EC, then append _ecc to the filename to differentie it
+				//If order is KEY_PAIR_TYPE_EC, then append _ecc to the filename to differentiate it
 				if($order_number == ConstantVariables::KEY_PAIR_TYPE_EC) {
 					$base_name = $sslDir.$combinedDomainNameUnderscore.'/'.$combinedDomainNameUnderscore.'_ecc';
 				}
@@ -339,12 +337,113 @@ class Run
 		//Success
 		return true;
 	}
+
+	/**
+	 * Update the contact email list on an existing Let's Encrypt account
+	 * @param $sslDir:string ex: /var/www/ssl
+	 * @param $emailList:array ex: ['new@example.com']
+	 * @param $baseDomainName:string ex: example
+	 * @param $TLD:string ex: com
+	 * @param $useStagingUrl:bool ex: FALSE
+	 * @return void
+	 */
+	public function updateAccountContact(
+		string $sslDir = "",
+		array $emailList = [],
+		string $baseDomainName = "",
+		string $TLD = 'com',
+		bool $useStagingUrl = FALSE
+	): void
+	{
+		//Setup the storage path for this account
+		$combinedDomainNameUnderscore = $baseDomainName.'_'.$TLD;
+		//Instantiate the client — this loads the existing account from disk
+		$client = new ClientRequest($emailList, $sslDir.$combinedDomainNameUnderscore, $useStagingUrl);
+		//Get the account service instance
+		$account = $client->getAccount();
+		try {
+			//Update the contact email list on the ACME server
+			$account->updateAccountContact($emailList);
+		}
+		catch(\Exception $e) {
+			echo 'Failed to update account contact: '.$e->getMessage();
+		}
+	}
+
+	/**
+	 * Rotate the account private/public key pair
+	 * The old key is replaced on both the ACME server and on disk.
+	 * @param $sslDir:string ex: /var/www/ssl
+	 * @param $emailList:array ex: ['alert@example.com']
+	 * @param $baseDomainName:string ex: example
+	 * @param $TLD:string ex: com
+	 * @param $useStagingUrl:bool ex: FALSE
+	 * @return void
+	 */
+	public function rotateAccountKey(
+		string $sslDir = "",
+		array $emailList = [],
+		string $baseDomainName = "",
+		string $TLD = 'com',
+		bool $useStagingUrl = FALSE
+	): void
+	{
+		//Setup the storage path for this account
+		$combinedDomainNameUnderscore = $baseDomainName.'_'.$TLD;
+		//Instantiate the client
+		$client = new ClientRequest($emailList, $sslDir.$combinedDomainNameUnderscore, $useStagingUrl);
+		//Get the account service instance
+		$account = $client->getAccount();
+		try {
+			//Generate a new RSA key pair and register it with the ACME server
+			//The old private.pem and public.pem on disk are replaced automatically
+			$account->updateAccountKey();
+		}
+		catch(\Exception $e) {
+			echo 'Failed to rotate account key: '.$e->getMessage();
+		}
+	}
+
+	/**
+	 * Deactivate a Let's Encrypt account permanently
+	 * WARNING: This cannot be undone. All certificates issued under this account
+	 * remain valid until expiry, but no new certificates can be issued.
+	 * @param $sslDir:string ex: /var/www/ssl
+	 * @param $emailList:array ex: ['alert@example.com']
+	 * @param $baseDomainName:string ex: example
+	 * @param $TLD:string ex: com
+	 * @param $useStagingUrl:bool ex: FALSE
+	 * @return void
+	 */
+	public function deactivateAccount(
+		string $sslDir = "",
+		array $emailList = [],
+		string $baseDomainName = "",
+		string $TLD = 'com',
+		bool $useStagingUrl = FALSE
+	): void
+	{
+		//Setup the storage path for this account
+		$combinedDomainNameUnderscore = $baseDomainName.'_'.$TLD;
+		//Instantiate the client
+		$client = new ClientRequest($emailList, $sslDir.$combinedDomainNameUnderscore, $useStagingUrl);
+		//Get the account service instance
+		$account = $client->getAccount();
+		try {
+			//Permanently deactivate the account on the ACME server
+			//The local private.pem and public.pem are deleted from disk automatically
+			$account->deactivateAccount();
+		}
+		catch(\Exception $e) {
+			echo 'Failed to deactivate account: '.$e->getMessage();
+		}
+	}
 }
 //Variables to use to get the SSL Certs
 $sslDir = '/var/www/ssl/';
 $hostsDir = '/var/www/hosts/';
 $emailList = ['example@example.com'];
-$subdominanName = 'dev';
+$subDomainName = 'dev';
 $baseDomainName = 'example';
 $TLD = 'com';
 $godaddyCredentials = [
@@ -357,21 +456,45 @@ $useStagingUrl = FALSE;
 $runClass = new Run();
 $runClass->getSslCert_usingHttp(
 	sslDir: $sslDir,
-	emaiList: $emailList,
-	subdominanName: $subdominanName,
+	emailList: $emailList,
+	subDomainName: $subDomainName,
 	baseDomainName: $baseDomainName,
 	TLD: $TLD,
-	hostsDir: $hostsDir,
+	pathToWwwRoot: $hostsDir,
 	renewCert: $renewCert,
 	useStagingUrl: $useStagingUrl
 );
 $runClass->getSslCert_usingDns(
 	sslDir: $sslDir,
 	emailList: $emailList,
-	subdominanName: $subdominanName,
+	subDomainName: $subDomainName,
 	baseDomainName: $baseDomainName,
 	TLD: $TLD,
 	godaddyCredentials: $godaddyCredentials,
 	renewCert: $renewCert,
 	useStagingUrl: $useStagingUrl
 );
+//Update the contact email list on the ACME account
+$runClass->updateAccountContact(
+	sslDir: $sslDir,
+	emailList: $emailList,
+	baseDomainName: $baseDomainName,
+	TLD: $TLD,
+	useStagingUrl: $useStagingUrl
+);
+//Rotate the account key pair (generates a new RSA key, registers it with ACME, replaces on disk)
+$runClass->rotateAccountKey(
+	sslDir: $sslDir,
+	emailList: $emailList,
+	baseDomainName: $baseDomainName,
+	TLD: $TLD,
+	useStagingUrl: $useStagingUrl
+);
+//Deactivate the account permanently — uncomment only when intentional
+//$runClass->deactivateAccount(
+//	sslDir: $sslDir,
+//	emailList: $emailList,
+//	baseDomainName: $baseDomainName,
+//	TLD: $TLD,
+//	useStagingUrl: $useStagingUrl
+//);

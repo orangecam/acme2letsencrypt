@@ -13,7 +13,7 @@ namespace orangecam\acme2letsencrypt\acme2services;
 use orangecam\acme2letsencrypt\constants\ConstantVariables;
 use orangecam\acme2letsencrypt\helpers\CommonHelper;
 use orangecam\acme2letsencrypt\helpers\OpenSSLHelper;
-use orangecam\acme2letsencrypt\ClientRequest;
+use orangecam\acme2letsencrypt\RunRequest;
 use GuzzleHttp\Client as GuzzleHttpClient;
 
 /**
@@ -63,6 +63,12 @@ class OrderService
 	 * @var string
 	 */
 	public $orderUrl;
+
+	/**
+	 * RunRequest instance
+	 * @var RunRequest
+	 */
+	private $_runRequest;
 
 	/**
 	 * Order AuthorizationService instance list
@@ -138,17 +144,19 @@ class OrderService
 
 	/**
 	 * OrderService constructor.
-	 * OrderService constructor.
 	 * @param array $domainInfo
 	 * @param int $algorithm
-	 * @param bool $generateNewOder
+	 * @param bool $generateNewOrder
+	 * @param RunRequest $runRequest
 	 * @throws \Exception
 	 */
-	public function __construct(array $domainInfo, int $algorithm, bool $generateNewOder)
+	public function __construct(array $domainInfo, int $algorithm, bool $generateNewOrder, RunRequest $runRequest)
 	{
+		//Store the RunRequest instance
+		$this->_runRequest = $runRequest;
 		//Set the variables as they are passed in
 		$this->_algorithm = $algorithm;
-		$this->_generateNewOrder = boolval($generateNewOder);
+		$this->_generateNewOrder = boolval($generateNewOrder);
 		//Domain info, either RSA or ECDSA type
 		foreach($domainInfo as $challengeType => $domainList) {
 			//Loop through all the domains that need to be applied for
@@ -174,7 +182,7 @@ class OrderService
 	 * Initialization
 	 * @throws \Exception
 	 */
-	public function init()
+	private function init()
 	{
 		$flag = substr(md5(implode(',', $this->_domainList)), 11, 8);
 
@@ -184,7 +192,7 @@ class OrderService
 		];
 
 		$algorithmName = $algorithmNameMap[$this->_algorithm];
-		$basePath = ClientRequest::$runRequest->storagePath.DIRECTORY_SEPARATOR.$flag.DIRECTORY_SEPARATOR.$algorithmName;
+		$basePath = $this->_runRequest->storagePath.DIRECTORY_SEPARATOR.$flag.DIRECTORY_SEPARATOR.$algorithmName;
 
 		if(!is_dir($basePath)) {
 			mkdir($basePath, 0755, TRUE);
@@ -229,7 +237,7 @@ class OrderService
 		}
 
 		file_put_contents(
-			ClientRequest::$runRequest->storagePath.DIRECTORY_SEPARATOR.$flag.DIRECTORY_SEPARATOR.'DOMAIN',
+			$this->_runRequest->storagePath.DIRECTORY_SEPARATOR.$flag.DIRECTORY_SEPARATOR.'DOMAIN',
 			implode("\r\n", $this->_domainList)
 		);
 	}
@@ -258,20 +266,22 @@ class OrderService
 		];
 		//More Payload
 		$jws = OpenSSLHelper::generateJWSOfKid(
-			ClientRequest::$runRequest->endpoint->newOrder,
-			ClientRequest::$runRequest->account->getAccountUrl(),
-			$payload
+			$this->_runRequest->endpoint->newOrder,
+			$this->_runRequest->account->getAccountUrl(),
+			$payload,
+			$this->_runRequest->account->getPrivateKey(),
+			$this->_runRequest->nonce
 		);
 		//Try catch
 		try {
-			//Setup the GuzzleHttpClient
-			$client = new GuzzleHttpClient();
+			//Use the shared HTTP client
+			$client = $this->_runRequest->http->getClient();
 			//Send the HEAD request and get the response
-			$response = $client->request('POST', ClientRequest::$runRequest->endpoint->newOrder, [
+			$response = $client->request('POST', $this->_runRequest->endpoint->newOrder, [
 				'headers' => [
 					'Accept' => 'application/jose+json',
 					'Content-Type' => 'application/jose+json',
-					'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+					'User-Agent' => $this->_runRequest->params['software'].'/'.$this->_runRequest->params['version'],
 				],
 				'body' => $jws
 			]);
@@ -321,8 +331,8 @@ class OrderService
 		$orderUrl = $this->getOrderInfoFromCache()['orderUrl'];
 		//Try catch
 		try {
-			//Setup the GuzzleHttpClient
-			$client = new GuzzleHttpClient();
+			//Use the shared HTTP client
+			$client = $this->_runRequest->http->getClient();
 			//Send the HEAD request and get the response
 			$response = $client->request('GET', $orderUrl);
 			//Check if status code is successful
@@ -359,7 +369,7 @@ class OrderService
 		}
 
 		$challengeList = [];
-		$thumbprint = OpenSSLHelper::generateThumbprint();
+		$thumbprint = OpenSSLHelper::generateThumbprint($this->_runRequest->account->getPrivateKey());
 
 		foreach($this->_authorizationList as $authorization) {
 			if($authorization->status != 'pending') {
@@ -374,7 +384,7 @@ class OrderService
 			}
 
 			$challengeContent = $challenge['token'].'.'.$thumbprint;
-			$challengeService = new ChallengeService($challengeType, $authorization);
+			$challengeService = new ChallengeService($challengeType, $authorization, $this->_runRequest);
 
 			/* Generate challenge info for http-01 */
 			if($challengeType == ConstantVariables::CHALLENGE_TYPE_HTTP) {
@@ -420,8 +430,8 @@ class OrderService
 		$this->waitStatus('valid');
 		//Try catch
 		try {
-			//Setup the GuzzleHttpClient
-			$client = new GuzzleHttpClient();
+			//Use the shared HTTP client
+			$client = $this->_runRequest->http->getClient();
 			//Send the HEAD request and get the response
 			$response = $client->request('GET', $this->certificate);
 			//Check if status code is successful
@@ -479,30 +489,31 @@ class OrderService
 		//If file does not exist, then error
 		if(!is_file($this->_certificatePath)) {
 			//Throw the Exception error
-			throw new \Exception("Revoke certificate failed because of certicate file missing({$this->_certificatePath})");
+			throw new \Exception("Revoke certificate failed because of certificate file missing({$this->_certificatePath})");
 		}
 		//Get certs
 		$certificate = CommonHelper::getCertificateWithoutComment(file_get_contents($this->_certificatePath));
 		$certificate = trim(CommonHelper::base64UrlSafeEncode(base64_decode($certificate)));
 		//Payload
 		$jws = OpenSSLHelper::generateJWSOfJWK(
-			ClientRequest::$runRequest->endpoint->revokeCert,
+			$this->_runRequest->endpoint->revokeCert,
 			[
 				'certificate' => $certificate,
 				'reason' => $reason,
 			],
-			$this->getPrivateKey()
+			$this->getPrivateKey(),
+			$this->_runRequest->nonce
 		);
 		//Try catch
 		try {
-			//Setup the GuzzleHttpClient
-			$client = new GuzzleHttpClient();
+			//Use the shared HTTP client
+			$client = $this->_runRequest->http->getClient();
 			//Send the HEAD request and get the response
-			$response = $client->request('POST', ClientRequest::$runRequest->endpoint->revokeCert, [
+			$response = $client->request('POST', $this->_runRequest->endpoint->revokeCert, [
 				'headers' => [
 					'Accept' => 'application/jose+json',
 					'Content-Type' => 'application/jose+json',
-					'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+					'User-Agent' => $this->_runRequest->params['software'].'/'.$this->_runRequest->params['version'],
 				],
 				'body' => $jws
 			]);
@@ -554,19 +565,21 @@ class OrderService
 		//Payload
 		$jws = OpenSSLHelper::generateJWSOfKid(
 			$this->finalize,
-			ClientRequest::$runRequest->account->getAccountUrl(),
-			['csr' => trim(CommonHelper::base64UrlSafeEncode(base64_decode($csr)))]
+			$this->_runRequest->account->getAccountUrl(),
+			['csr' => trim(CommonHelper::base64UrlSafeEncode(base64_decode($csr)))],
+			$this->_runRequest->account->getPrivateKey(),
+			$this->_runRequest->nonce
 		);
 		//Try catch
 		try {
-			//Setup the GuzzleHttpClient
-			$client = new GuzzleHttpClient();
+			//Use the shared HTTP client
+			$client = $this->_runRequest->http->getClient();
 			//Send the HEAD request and get the response
 			$response = $client->request('POST', $this->finalize, [
 				'headers' => [
 					'Accept' => 'application/jose+json',
 					'Content-Type' => 'application/jose+json',
-					'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+					'User-Agent' => $this->_runRequest->params['software'].'/'.$this->_runRequest->params['version'],
 				],
 				'body' => $jws
 			]);
@@ -595,7 +608,7 @@ class OrderService
 		$this->_authorizationList = [];
 
 		foreach($this->authorizations as $authorizationUrl) {
-			$authorization = new AuthorizationService($authorizationUrl);
+			$authorization = new AuthorizationService($authorizationUrl, $this->_runRequest);
 
 			$this->_authorizationList[] = $authorization;
 		}
@@ -624,10 +637,10 @@ class OrderService
 		try {
 			//Get the certID
 			$certId = $this->getAcmeCertIdRenewalData($certificatePem);
-			//Setup the GuzzleHttpClient
-			$client = new GuzzleHttpClient();
+			//Use the shared HTTP client
+			$client = $this->_runRequest->http->getClient();
 			//Send the GET request and get the response
-			$response = $client->request('GET', ClientRequest::$runRequest->endpoint->renewalInfo.'/'.$certId);
+			$response = $client->request('GET', $this->_runRequest->endpoint->renewalInfo.'/'.$certId);
 			//Check if status code is successful
 			if($response->getStatusCode() !== 200) {
 				//Throw the Exception error
@@ -638,7 +651,7 @@ class OrderService
 			//Check to make sure application/json is returned
 			if(strpos($contentType, 'application/json') === false) {
 				//Throw the Exception error
-				throw new \Exception("The response is not JSON, the url is: {".ClientRequest::$runRequest->endpoint->renewalInfo.'/'.$certId."}");
+				throw new \Exception("The response is not JSON, the url is: {".$this->_runRequest->endpoint->renewalInfo.'/'.$certId."}");
 			}
 			//Get the body
 			$body = json_decode(trim($response->getBody()->getContents()), true, 512, JSON_THROW_ON_ERROR);
@@ -657,16 +670,15 @@ class OrderService
 	 * Generates the CertID for the ACME ARI endpoint.
 	 *
 	 * @param string $certificatePem The PEM encoded certificate to check.
-	 * @param string $issuerPem The PEM encoded issuer (CA) certificate.
 	 * @return string The formatted CertID.
-	 * @throws Exception
+	 * @throws \Exception
 	 */
 	public function getAcmeCertIdRenewalData(string $certificatePem): string
 	{
 		//Parse the certificate to get the serial number
 		$certData = openssl_x509_parse($certificatePem);
 		if(!isset($certData["extensions"]["authorityKeyIdentifier"])) {
-			throw new Exception("Certificate missing AKI extension");
+			throw new \Exception("Certificate missing AKI extension");
 		}
 		//Extract AKI from extensions
 		//The array usually contains "keyid:XX:YY..." or just "XX:YY..."
@@ -681,8 +693,6 @@ class OrderService
 			$serialHex = "0".$serialHex;
 		}
 		//If the first byte is > 7F (e.g., 80-FF), DER requires a leading 00.
-		//Your serial 2C... starts with 2C (less than 80), so no extra 00 is needed.
-		//However, a robust implementation checks the first byte:
 		$firstByte = hexdec(substr($serialHex, 0, 2));
 		if($firstByte > 0x7f) {
 			$serialHex = "00".$serialHex;
@@ -789,13 +799,20 @@ class OrderService
 	}
 
 	/**
-	 * Wait until status changes
-	 * @param $staus
+	 * Wait until order status reaches the expected value, or throw on timeout
+	 * @param string $status
+	 * @param int $timeoutSeconds Maximum seconds to wait before throwing (default 300)
 	 * @throws \Exception
 	 */
-	private function waitStatus($staus)
+	private function waitStatus(string $status, int $timeoutSeconds = 300)
 	{
-		while($this->status != $staus) {
+		$startTime = time();
+
+		while($this->status != $status) {
+			if((time() - $startTime) >= $timeoutSeconds) {
+				throw new \Exception("Timed out waiting for order status '{$status}' after {$timeoutSeconds} seconds. Current status: '{$this->status}'.");
+			}
+
 			sleep(3);
 
 			$this->getOrder(FALSE);

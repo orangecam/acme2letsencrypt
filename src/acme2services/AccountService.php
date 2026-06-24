@@ -13,8 +13,7 @@ namespace orangecam\acme2letsencrypt\acme2services;
 use orangecam\acme2letsencrypt\helpers\CommonHelper;
 use orangecam\acme2letsencrypt\helpers\OpenSSLHelper;
 use orangecam\acme2letsencrypt\constants\ConstantVariables;
-use orangecam\acme2letsencrypt\ClientRequest;
-use GuzzleHttp\Client as GuzzleHttpClient;
+use orangecam\acme2letsencrypt\RunRequest;
 
 /**
  * Class AccountService
@@ -24,6 +23,7 @@ class AccountService
 {
 	/**
 	 * Hold RunRequest class instance
+	 * @var RunRequest
 	 */
 	private $runRequest;
 
@@ -76,7 +76,7 @@ class AccountService
 	public $accountUrl;
 
 	/**
-	 * Private key storate path
+	 * Private key storage path
 	 * @var string
 	 */
 	private $_privateKeyPath;
@@ -90,9 +90,10 @@ class AccountService
 	/**
 	 * AccountService constructor.
 	 * @param string $accountStoragePath
+	 * @param RunRequest $runRequest
 	 * @throws \Exception
 	 */
-	public function __construct(string $accountStoragePath)
+	public function __construct(string $accountStoragePath, RunRequest $runRequest)
 	{
 		//Check if storage path is not there, then create it if possible
 		if(!is_dir($accountStoragePath) && mkdir($accountStoragePath, 0755, TRUE) === FALSE) {
@@ -102,14 +103,8 @@ class AccountService
 		//Set the path for the private and public pem files for the account
 		$this->_privateKeyPath = $accountStoragePath.'/private.pem';
 		$this->_publicKeyPath = $accountStoragePath.'/public.pem';
-	}
-
-	/**
-	 * Init
-	 * @throws \Exception
-	 */
-	public function init()
-	{
+		//Store the RunRequest instance
+		$this->runRequest = $runRequest;
 		//Check if the account keys exist, and if yes, then get the account
 		if(is_file($this->_publicKeyPath) && is_file($this->_privateKeyPath)) {
 			$this->getAccount();
@@ -136,7 +131,7 @@ class AccountService
 			function($email) {
 				return "mailto:{$email}";
 			},
-			ClientRequest::$runRequest->emailList
+			$this->runRequest->emailList
 		);
 		//Payload
 		$payload = [
@@ -145,19 +140,21 @@ class AccountService
 		];
 		//Merge payload
 		$jws = OpenSSLHelper::generateJWSOfJWK(
-			ClientRequest::$runRequest->endpoint->newAccount,
-			$payload
+			$this->runRequest->endpoint->newAccount,
+			$payload,
+			$this->getPrivateKey(),
+			$this->runRequest->nonce
 		);
 		//Try catch
 		try {
-			//Setup the GuzzleHttpClient
-			$client = new GuzzleHttpClient();
+			//Use the shared HTTP client
+			$client = $this->runRequest->http->getClient();
 			//Send the HEAD request and get the response
-			$response = $client->request('POST', ClientRequest::$runRequest->endpoint->newAccount, [
+			$response = $client->request('POST', $this->runRequest->endpoint->newAccount, [
 				'headers' => [
 					'Accept' => 'application/jose+json',
 					'Content-Type' => 'application/jose+json',
-					'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+					'User-Agent' => $this->runRequest->params['software'].'/'.$this->runRequest->params['version'],
 				],
 				'body' => $jws
 			]);
@@ -171,7 +168,7 @@ class AccountService
 			//Check to make sure application/json is returned
 			if(strpos($contentType, 'application/json') === false) {
 				//Throw the Exception error
-				throw new \Exception("The response is not JSON, the url is: {".ClientRequest::$runRequest->endpoint->newAccount."}");
+				throw new \Exception("The response is not JSON, the url is: {".$this->runRequest->endpoint->newAccount."}");
 			}
 			//Get the body
 			$body = json_decode(trim($response->getBody()->getContents()), true, 512, JSON_THROW_ON_ERROR);
@@ -208,18 +205,20 @@ class AccountService
 		$jws = OpenSSLHelper::generateJWSOfKid(
 			$accountUrl,
 			$accountUrl,
-			['' => '']
+			['' => ''],
+			$this->getPrivateKey(),
+			$this->runRequest->nonce
 		);
 		//Try catch
 		try {
-			//Setup the GuzzleHttpClient
-			$client = new GuzzleHttpClient();
+			//Use the shared HTTP client
+			$client = $this->runRequest->http->getClient();
 			//Send the HEAD request and get the response
 			$response = $client->request('POST', $accountUrl, [
 				'headers' => [
 					'Accept' => 'application/jose+json',
 					'Content-Type' => 'application/jose+json',
-					'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+					'User-Agent' => $this->runRequest->params['software'].'/'.$this->runRequest->params['version'],
 				],
 				'body' => $jws
 			]);
@@ -262,19 +261,21 @@ class AccountService
 		}
 		//Prepare the body of the post request
 		$jws = OpenSSLHelper::generateJWSOfJWK(
-			ClientRequest::$runRequest->endpoint->newAccount,
-			['onlyReturnExisting' => TRUE]
+			$this->runRequest->endpoint->newAccount,
+			['onlyReturnExisting' => TRUE],
+			$this->getPrivateKey(),
+			$this->runRequest->nonce
 		);
 		//Try catch
 		try {
-			//Setup the GuzzleHttpClient
-			$client = new GuzzleHttpClient();
+			//Use the shared HTTP client
+			$client = $this->runRequest->http->getClient();
 			//Send the HEAD request and get the response
-			$response = $client->request('POST', ClientRequest::$runRequest->endpoint->newAccount, [
+			$response = $client->request('POST', $this->runRequest->endpoint->newAccount, [
 				'headers' => [
 					'Accept' => 'application/jose+json',
 					'Content-Type' => 'application/jose+json',
-					'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+					'User-Agent' => $this->runRequest->params['software'].'/'.$this->runRequest->params['version'],
 				],
 				'body' => $jws
 			]);
@@ -288,7 +289,7 @@ class AccountService
 			//Check to make sure application/json is returned
 			if(strpos($contentType, 'application/json') === false) {
 				//Throw the Exception error
-				throw new \Exception("The response is not JSON, the url is: {".ClientRequest::$runRequest->endpoint->newAccount."}");
+				throw new \Exception("The response is not JSON, the url is: {".$this->runRequest->endpoint->newAccount."}");
 			}
 			//Get the body
 			$body = json_decode(trim($response->getBody()->getContents()), true, 512, JSON_THROW_ON_ERROR);
@@ -331,18 +332,20 @@ class AccountService
 		$jws = OpenSSLHelper::generateJWSOfKid(
 			$accountUrl,
 			$accountUrl,
-			['contact' => $contactList]
+			['contact' => $contactList],
+			$this->getPrivateKey(),
+			$this->runRequest->nonce
 		);
 		//Try catch
 		try {
-			//Setup the GuzzleHttpClient
-			$client = new GuzzleHttpClient();
+			//Use the shared HTTP client
+			$client = $this->runRequest->http->getClient();
 			//Send the HEAD request and get the response
 			$response = $client->request('POST', $accountUrl, [
 				'headers' => [
 					'Accept' => 'application/jose+json',
 					'Content-Type' => 'application/jose+json',
-					'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+					'User-Agent' => $this->runRequest->params['software'].'/'.$this->runRequest->params['version'],
 				],
 				'body' => $jws
 			]);
@@ -372,7 +375,7 @@ class AccountService
 	}
 
 	/**
-	 * Update accout private/public keys
+	 * Update account private/public keys
 	 * @throws \Exception
 	 */
 	public function updateAccountKey()
@@ -393,26 +396,29 @@ class AccountService
 		];
 		//More Payload
 		$outerPayload = OpenSSLHelper::generateJWSOfJWK(
-			ClientRequest::$runRequest->endpoint->keyChange,
+			$this->runRequest->endpoint->keyChange,
 			$innerPayload,
-			$keyPair['privateKey']
+			$keyPair['privateKey'],
+			$this->runRequest->nonce
 		);
 		//More Payload
 		$jws = OpenSSLHelper::generateJWSOfKid(
-			ClientRequest::$runRequest->endpoint->keyChange,
+			$this->runRequest->endpoint->keyChange,
 			$this->getAccountUrl(),
-			$outerPayload
+			$outerPayload,
+			$this->getPrivateKey(),
+			$this->runRequest->nonce
 		);
 		//Try catch
 		try {
-			//Setup the GuzzleHttpClient
-			$client = new GuzzleHttpClient();
+			//Use the shared HTTP client
+			$client = $this->runRequest->http->getClient();
 			//Send the HEAD request and get the response
-			$response = $client->request('POST', ClientRequest::$runRequest->endpoint->keyChange, [
+			$response = $client->request('POST', $this->runRequest->endpoint->keyChange, [
 				'headers' => [
 					'Accept' => 'application/jose+json',
 					'Content-Type' => 'application/jose+json',
-					'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+					'User-Agent' => $this->runRequest->params['software'].'/'.$this->runRequest->params['version'],
 				],
 				'body' => $jws
 			]);
@@ -426,7 +432,7 @@ class AccountService
 			//Check to make sure application/json is returned
 			if(strpos($contentType, 'application/json') === false) {
 				//Throw the Exception error
-				throw new \Exception("The response is not JSON, the url is: {".ClientRequest::$runRequest->endpoint->keyChange."}");
+				throw new \Exception("The response is not JSON, the url is: {".$this->runRequest->endpoint->keyChange."}");
 			}
 			//Get the body
 			$body = json_decode(trim($response->getBody()->getContents()), true, 512, JSON_THROW_ON_ERROR);
@@ -454,18 +460,20 @@ class AccountService
 		$jws = OpenSSLHelper::generateJWSOfKid(
 			$this->getAccountUrl(),
 			$this->getAccountUrl(),
-			['status' => 'deactivated']
+			['status' => 'deactivated'],
+			$this->getPrivateKey(),
+			$this->runRequest->nonce
 		);
 		//Try catch
 		try {
-			//Setup the GuzzleHttpClient
-			$client = new GuzzleHttpClient();
+			//Use the shared HTTP client
+			$client = $this->runRequest->http->getClient();
 			//Send the HEAD request and get the response
 			$response = $client->request('POST', $this->getAccountUrl(), [
 				'headers' => [
 					'Accept' => 'application/jose+json',
 					'Content-Type' => 'application/jose+json',
-					'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+					'User-Agent' => $this->runRequest->params['software'].'/'.$this->runRequest->params['version'],
 				],
 				'body' => $jws
 			]);
@@ -501,10 +509,15 @@ class AccountService
 	 * Get private key content
 	 * @return bool|string
 	 */
-	public function getPrivateKey()
+	public function getPrivateKey(): string
 	{
-		//Return path
-		return file_get_contents($this->_privateKeyPath);
+		//Read the private key file
+		$key = file_get_contents($this->_privateKeyPath);
+		//Throw if the file is missing or unreadable
+		if($key === FALSE) {
+			throw new \Exception("Failed to read account private key from: {$this->_privateKeyPath}");
+		}
+		return $key;
 	}
 
 	/**

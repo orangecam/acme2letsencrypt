@@ -10,8 +10,7 @@
 
 namespace orangecam\acme2letsencrypt\acme2services;
 
-use orangecam\acme2letsencrypt\ClientRequest;
-use GuzzleHttp\Client as GuzzleHttpClient;
+use orangecam\acme2letsencrypt\acme2services\HttpClientService as HttpClient;
 
 /**
  * Class NonceService
@@ -20,18 +19,41 @@ use GuzzleHttp\Client as GuzzleHttpClient;
 class NonceService
 {
 	/**
+	 * Endpoint service instance
+	 * @var EndpointService
+	 */
+	private $endpoint;
+
+	/**
+	 * Shared HTTP client service
+	 * @var HttpClient
+	 */
+	private $http;
+
+	/**
+	 * NonceService constructor.
+	 * @param EndpointService $endpoint
+	 * @param HttpClient $http
+	 */
+	public function __construct(EndpointService $endpoint, HttpClient $http)
+	{
+		$this->endpoint = $endpoint;
+		$this->http = $http;
+	}
+
+	/**
 	 * Get new nonce for next request
 	 * @return string
 	 * @throws \Exception
 	 */
 	public function getNewNonce()
 	{
-		//Get the url from the runtime
-		$newNonceUrl = ClientRequest::$runRequest->endpoint->newNonce;
+		//Get the url from the endpoint
+		$newNonceUrl = $this->endpoint->newNonce;
 		//Try catch
 		try {
-			//Setup the GuzzleHttpClient
-			$client = new GuzzleHttpClient();
+			//Use the shared HTTP client
+			$client = $this->http->getClient();
 			//Send the HEAD request and get the response
 			$response = $client->request('HEAD', $newNonceUrl);
 			//Check if status code is successful

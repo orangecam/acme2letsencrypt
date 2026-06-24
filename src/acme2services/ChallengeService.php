@@ -10,7 +10,7 @@
 
 namespace orangecam\acme2letsencrypt\acme2services;
 
-use orangecam\acme2letsencrypt\ClientRequest;
+use orangecam\acme2letsencrypt\RunRequest;
 
 /**
  * Class ChallengeService
@@ -31,20 +31,28 @@ class ChallengeService
 	private $_credential;
 
 	/**
-	 * Authorization inntance
+	 * Authorization instance
 	 * @var \orangecam\acme2letsencrypt\acme2services\AuthorizationService
 	 */
 	private $_authorization;
 
 	/**
+	 * RunRequest instance
+	 * @var RunRequest
+	 */
+	private $_runRequest;
+
+	/**
 	 * ChallengeService constructor.
 	 * @param string $type
 	 * @param \orangecam\acme2letsencrypt\acme2services\AuthorizationService $authorization
+	 * @param RunRequest $runRequest
 	 */
-	public function __construct($type, $authorization)
+	public function __construct($type, $authorization, RunRequest $runRequest)
 	{
 		$this->_type = $type;
 		$this->_authorization = $authorization;
+		$this->_runRequest = $runRequest;
 	}
 
 	/**
@@ -83,7 +91,7 @@ class ChallengeService
 	 */
 	public function verify(int $verifyLocallyTimeout = 0, int $verifyCATimeout = 0): bool
 	{
-		$orderService = ClientRequest::$runRequest->order;
+		$orderService = $this->_runRequest->order;
 
 		if($orderService->isAllAuthorizationValid() === TRUE) {
 			return TRUE;

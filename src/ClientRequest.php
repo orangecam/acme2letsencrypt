@@ -19,7 +19,7 @@ class ClientRequest
 	 * RunRequest instance
 	 * @var RunRequest
 	 */
-	public static $runRequest;
+	public RunRequest $runRequest;
 
 	/**
 	 * Client constructor.
@@ -30,9 +30,7 @@ class ClientRequest
 	public function __construct(array $emailList, string $storagePath, bool $staging = FALSE)
 	{
 		//Make a new instance and save it for use
-		self::$runRequest = new RunRequest($emailList, $storagePath, $staging);
-		//Run init, to setup some stuff
-		self::$runRequest->init();
+		$this->runRequest = new RunRequest($emailList, $storagePath, $staging);
 	}
 
 	/**
@@ -42,20 +40,20 @@ class ClientRequest
 	public function getAccount()
 	{
 		//Return the AccountService for the user to use it
-		return self::$runRequest->account;
+		return $this->runRequest->account;
 	}
 
 	/**
 	 * Get order service instance
 	 * @param array $domainInfo
 	 * @param int $algorithm
-	 * @param bool $generateNewOder
+	 * @param bool $generateNewOrder
 	 * @return services\OrderService
 	 * @throws \Exception
 	 */
-	public function getOrder(array $domainInfo, int $algorithm, bool $generateNewOder = TRUE)
+	public function getOrder(array $domainInfo, int $algorithm, bool $generateNewOrder = TRUE)
 	{
 		//Return the order being requested
-		return self::$runRequest->getOrder($domainInfo, $algorithm, $generateNewOder);
+		return $this->runRequest->getOrder($domainInfo, $algorithm, $generateNewOrder);
 	}
 }

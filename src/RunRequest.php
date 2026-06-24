@@ -11,6 +11,7 @@ namespace orangecam\acme2letsencrypt;
 
 use orangecam\acme2letsencrypt\acme2services\AccountService;
 use orangecam\acme2letsencrypt\acme2services\EndpointService;
+use orangecam\acme2letsencrypt\acme2services\HttpClientService;
 use orangecam\acme2letsencrypt\acme2services\NonceService;
 use orangecam\acme2letsencrypt\acme2services\OrderService;
 
@@ -69,6 +70,12 @@ class RunRequest
 	public $nonce;
 
 	/**
+	 * Shared HTTP client service
+	 * @var \orangecam\acme2letsencrypt\acme2services\HttpClientService
+	 */
+	public $http;
+
+	/**
 	 * Constructor
 	 * @param array $emailList
 	 * @param string $storagePath
@@ -84,43 +91,34 @@ class RunRequest
 		$this->storagePath = rtrim(trim($storagePath), '/\\');
 		//Staging, true or false
 		$this->staging = boolval($staging);
-	}
-
-	/**
-	 * Init
-	 */
-	public function init()
-	{
 		//Set the parameters to this
 		$this->params = [
 			//Software name
 			'software' => 'orangecam-acme2letsencrypt',
 			//Version number
-			'version' => '1.0.10',
+			'version' => '1.0.11',
 		];
+		//Setup the shared HTTP client (pass a config array here for proxy, CA bundle, timeout, etc.)
+		$this->http = new HttpClientService();
 		//Setup the endpoint service to make queries to the acme2 api
-		$this->endpoint = new EndpointService($this->staging);
-		//Setup the account service
-		$this->account = new AccountService($this->storagePath.'/account');
+		$this->endpoint = new EndpointService($this->staging, $this->http);
 		//Setup the nonce service
-		$this->nonce = new NonceService($this->endpoint);
-		//Get the account details
-		$this->account->init();
+		$this->nonce = new NonceService($this->endpoint, $this->http);
+		//Setup the account service, passing $this so it can access endpoint, nonce, params, etc.
+		$this->account = new AccountService($this->storagePath.'/account', $this);
 	}
 
 	/**
 	 * Get order service instance
 	 * @param array $domainInfo
 	 * @param int $algorithm
-	 * @param bool $generateNewOder
+	 * @param bool $generateNewOrder
 	 * @return OrderService
 	 * @throws \Exception
 	 */
-	public function getOrder(array $domainInfo, int $algorithm, bool $generateNewOder = true)
+	public function getOrder(array $domainInfo, int $algorithm, bool $generateNewOrder = true)
 	{
-		if(!$this->order) {
-			$this->order = new OrderService($domainInfo, $algorithm, $generateNewOder);
-		}
+		$this->order = new OrderService($domainInfo, $algorithm, $generateNewOrder, $this);
 
 		return $this->order;
 	}

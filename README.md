@@ -1,12 +1,12 @@
 # Let's Encrypt ACME2 project
 
-A PHP client for acme protocal (version 2) implementation, used to get let's encrypt ssl certificates. Support for both RSA and ECDSA certificates is supported. The code will not set the challenge file or DNS record for you, you must handle these manually.
+A PHP client for acme protocol (version 2) implementation, used to get let's encrypt ssl certificates. Support for both RSA and ECDSA certificates is supported. The code will not set the challenge file or DNS record for you, you must handle these manually.
 
 > This project was forked from (https://github.com/stonemax/acme2) and fully upgraded to use guzzlehttp/guzzle package as the http request handler. It also fixes deprecations from newer versions of php, specifically php 8. This project fully supports php 8.1 and assumes that since all the deprecations are fixed, it will work with php 9 as well when it is released. This project is only compatibile with php 8.1 or newer as of April 2025.
 
 ## 1. Current Version
 
-The current version is `1.0.10`.
+The current version is `1.0.11`.
 
 ## 2. Prerequisites
 
@@ -92,10 +92,10 @@ $order = $client->getOrder($domainInfo, $algorithm, TRUE);
 
 ```php
 //The prototype of method `getOrder()` is shown below:
-public function getOrder(array $domainInfo, int $algorithm, bool $generateNewOder = TRUE): OrderService
+public function getOrder(array $domainInfo, int $algorithm, bool $generateNewOrder = TRUE): OrderService
 ```
 
-The third param `$generateNewOder` controls whether a new order need to be generated. When `$generateNewOder == TRUE`, all files under original certificates directory will be removed in order to generate new certificates; When `$generateNewOder == FALSE`, it will return an existing order service instance used to revoke certificates generally.
+The third param `$generateNewOrder` controls whether a new order needs to be generated. When `$generateNewOrder == TRUE`, all files under original certificates directory will be removed in order to generate new certificates; When `$generateNewOrder == FALSE`, it will return an existing order service instance used to revoke certificates generally.
 
 #### 4.4. Challenge
 

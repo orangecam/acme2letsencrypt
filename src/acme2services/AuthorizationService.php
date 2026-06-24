@@ -13,7 +13,7 @@ namespace orangecam\acme2letsencrypt\acme2services;
 use orangecam\acme2letsencrypt\constants\ConstantVariables;
 use orangecam\acme2letsencrypt\helpers\CommonHelper;
 use orangecam\acme2letsencrypt\helpers\OpenSSLHelper;
-use orangecam\acme2letsencrypt\ClientRequest;
+use orangecam\acme2letsencrypt\RunRequest;
 use GuzzleHttp\Client as GuzzleHttpClient;
 
 /**
@@ -65,14 +65,23 @@ class AuthorizationService
 	public $authorizationUrl;
 
 	/**
+	 * RunRequest instance
+	 * @var RunRequest
+	 */
+	private $runRequest;
+
+	/**
 	 * AuthorizationService constructor.
 	 * @param string $authorizationUrl
+	 * @param RunRequest $runRequest
 	 * @throws \Exception
 	 */
-	public function __construct(string $authorizationUrl)
+	public function __construct(string $authorizationUrl, RunRequest $runRequest)
 	{
 		//Set the variables as they are passed in
 		$this->authorizationUrl = $authorizationUrl;
+		//Store the RunRequest instance
+		$this->runRequest = $runRequest;
 		//Get Authorization
 		$this->getAuthorization();
 	}
@@ -86,8 +95,8 @@ class AuthorizationService
 	{
 		//Try catch
 		try {
-			//Setup the GuzzleHttpClient
-			$client = new GuzzleHttpClient();
+			//Use the shared HTTP client
+			$client = $this->runRequest->http->getClient();
 			//Send the HEAD request and get the response
 			$response = $client->request('GET', $this->authorizationUrl);
 			//Check if status code is successful
@@ -150,25 +159,27 @@ class AuthorizationService
 			return TRUE;
 		}
 		//Generate Thumbprint
-		$keyAuthorization = $challenge['token'].'.'.OpenSSLHelper::generateThumbprint();
+		$keyAuthorization = $challenge['token'].'.'.OpenSSLHelper::generateThumbprint($this->runRequest->account->getPrivateKey());
 		//Verify
 		$this->verifyLocally($type, $keyAuthorization, $verifyLocallyTimeout);
 		//Prepare payload
 		$jwk = OpenSSLHelper::generateJWSOfKid(
 			$challenge['url'],
-			ClientRequest::$runRequest->account->getAccountUrl(),
-			['keyAuthorization' => $keyAuthorization]
+			$this->runRequest->account->getAccountUrl(),
+			['keyAuthorization' => $keyAuthorization],
+			$this->runRequest->account->getPrivateKey(),
+			$this->runRequest->nonce
 		);
 		//Try catch
 		try {
-			//Setup the GuzzleHttpClient
-			$client = new GuzzleHttpClient();
+			//Use the shared HTTP client
+			$client = $this->runRequest->http->getClient();
 			//Send the GET request, to make sure it is responding
 			$response = $client->request('POST', $challenge['url'], [
 				'headers' => [
 					'Accept' => 'application/jose+json',
 					'Content-Type' => 'application/jose+json',
-					'User-Agent' => ClientRequest::$runRequest->params['software'].'/'.ClientRequest::$runRequest->params['version'],
+					'User-Agent' => $this->runRequest->params['software'].'/'.$this->runRequest->params['version'],
 				],
 				'body' => $jwk
 			]);
